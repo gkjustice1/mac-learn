@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - 'agent/s1-001-1-repository-domain'
+      - 'agent/s1-001-2-repository-persistence'
     paths:
       - 'packages/repository-domain/**'
       - '.github/workflows/repository-domain-ci.yml'
@@ -18,6 +19,22 @@ permissions:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: mekos_test
+          POSTGRES_USER: mekos
+          POSTGRES_PASSWORD: mekos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mekos -d mekos_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://mekos:mekos@localhost:5432/mekos_test
     defaults:
       run:
         working-directory: packages/repository-domain
@@ -36,5 +53,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Test
-        run: npm test
+      - name: Run migrations
+        run: npm run migrate
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: PostgreSQL integration tests
+        run: npm run test:integration
