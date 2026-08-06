@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE IF NOT EXISTS repositories (
   id text NOT NULL,
   tenant_id text NOT NULL,
@@ -35,5 +33,3 @@ CREATE INDEX IF NOT EXISTS repositories_tenant_status_idx
 
 CREATE INDEX IF NOT EXISTS repositories_tenant_type_idx
   ON repositories (tenant_id, repository_type);
-
-COMMIT;
