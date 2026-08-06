@@ -6,10 +6,35 @@ import {
   type RepositoryType,
   type RepositoryVisibility,
 } from './repository';
-import type { RepositoryStore } from './postgres-repository';
+import type { RepositoryStore, RepositoryUnitOfWork } from './postgres-repository';
+
+export type RepositoryApplicationEvent =
+  | RepositoryDomainEvent
+  | {
+      readonly type: 'RepositoryDeleted';
+      readonly repositoryId: string;
+      readonly tenantId: string;
+      readonly occurredAt: Date;
+    };
 
 export interface DomainEventPublisher {
-  publish(events: readonly RepositoryDomainEvent[]): Promise<void>;
+  publish(events: readonly RepositoryApplicationEvent[]): Promise<void>;
+}
+
+export class InMemoryDomainEventPublisher implements DomainEventPublisher {
+  private readonly published: RepositoryApplicationEvent[] = [];
+
+  public async publish(events: readonly RepositoryApplicationEvent[]): Promise<void> {
+    this.published.push(...events.map((event) => ({ ...event, occurredAt: new Date(event.occurredAt) })));
+  }
+
+  public get events(): readonly RepositoryApplicationEvent[] {
+    return this.published.map((event) => ({ ...event, occurredAt: new Date(event.occurredAt) }));
+  }
+
+  public clear(): void {
+    this.published.length = 0;
+  }
 }
 
 export interface CreateRepositoryCommand {
@@ -47,6 +72,7 @@ export interface RepositoryIdentityCommand {
 export interface DeleteRepositoryCommand {
   tenantId: string;
   repositoryId: string;
+  now?: Date;
 }
 
 export interface RepositoryApplicationService {
@@ -73,71 +99,94 @@ export class RepositoryAlreadyExistsError extends Error {
 
 export class DefaultRepositoryApplicationService implements RepositoryApplicationService {
   public constructor(
-    private readonly store: RepositoryStore,
+    private readonly unitOfWork: RepositoryUnitOfWork,
     private readonly eventPublisher: DomainEventPublisher,
   ) {}
 
   public async create(command: CreateRepositoryCommand): Promise<Repository> {
-    const existing = await this.store.findById(command.tenantId, command.id);
-    if (existing) {
-      throw new RepositoryAlreadyExistsError(command.tenantId, command.id);
-    }
+    const result = await this.unitOfWork.execute(async (store) => {
+      const existing = await store.findById(command.tenantId, command.id);
+      if (existing) throw new RepositoryAlreadyExistsError(command.tenantId, command.id);
 
-    const repository = Repository.create(command);
-    await this.persistAndPublish(repository);
-    return repository;
+      const repository = Repository.create(command);
+      await store.save(repository);
+      return { repository, events: repository.pullDomainEvents() };
+    });
+
+    await this.publish(result.events);
+    return result.repository;
   }
 
   public async update(command: UpdateRepositoryCommand): Promise<Repository> {
-    const repository = await this.requireRepository(command.tenantId, command.repositoryId);
-    repository.update({
-      name: command.name,
-      displayName: command.displayName,
-      description: command.description,
-      type: command.type,
-      visibility: command.visibility,
-      classification: command.classification,
-      owner: command.owner,
-      now: command.now,
+    return this.mutate(command.tenantId, command.repositoryId, async (repository) => {
+      repository.update({
+        name: command.name,
+        displayName: command.displayName,
+        description: command.description,
+        type: command.type,
+        visibility: command.visibility,
+        classification: command.classification,
+        owner: command.owner,
+        now: command.now,
+      });
     });
-    await this.persistAndPublish(repository);
-    return repository;
   }
 
   public async archive(command: RepositoryIdentityCommand): Promise<Repository> {
-    const repository = await this.requireRepository(command.tenantId, command.repositoryId);
-    repository.archive(command.now);
-    await this.persistAndPublish(repository);
-    return repository;
+    return this.mutate(command.tenantId, command.repositoryId, async (repository) => {
+      repository.archive(command.now);
+    });
   }
 
   public async restore(command: RepositoryIdentityCommand): Promise<Repository> {
-    const repository = await this.requireRepository(command.tenantId, command.repositoryId);
-    repository.restore(command.now);
-    await this.persistAndPublish(repository);
-    return repository;
+    return this.mutate(command.tenantId, command.repositoryId, async (repository) => {
+      repository.restore(command.now);
+    });
   }
 
   public async delete(command: DeleteRepositoryCommand): Promise<void> {
-    const deleted = await this.store.delete(command.tenantId, command.repositoryId);
-    if (!deleted) {
-      throw new RepositoryNotFoundError(command.tenantId, command.repositoryId);
-    }
+    const event = await this.unitOfWork.execute(async (store) => {
+      const deleted = await store.delete(command.tenantId, command.repositoryId);
+      if (!deleted) throw new RepositoryNotFoundError(command.tenantId, command.repositoryId);
+
+      return {
+        type: 'RepositoryDeleted' as const,
+        repositoryId: command.repositoryId,
+        tenantId: command.tenantId,
+        occurredAt: new Date(command.now ?? new Date()),
+      };
+    });
+
+    await this.publish([event]);
   }
 
-  private async requireRepository(tenantId: string, repositoryId: string): Promise<Repository> {
-    const repository = await this.store.findById(tenantId, repositoryId);
-    if (!repository) {
-      throw new RepositoryNotFoundError(tenantId, repositoryId);
-    }
+  private async mutate(
+    tenantId: string,
+    repositoryId: string,
+    mutation: (repository: Repository) => Promise<void>,
+  ): Promise<Repository> {
+    const result = await this.unitOfWork.execute(async (store) => {
+      const repository = await this.requireRepository(store, tenantId, repositoryId);
+      await mutation(repository);
+      await store.save(repository);
+      return { repository, events: repository.pullDomainEvents() };
+    });
+
+    await this.publish(result.events);
+    return result.repository;
+  }
+
+  private async requireRepository(
+    store: RepositoryStore,
+    tenantId: string,
+    repositoryId: string,
+  ): Promise<Repository> {
+    const repository = await store.findById(tenantId, repositoryId);
+    if (!repository) throw new RepositoryNotFoundError(tenantId, repositoryId);
     return repository;
   }
 
-  private async persistAndPublish(repository: Repository): Promise<void> {
-    await this.store.save(repository);
-    const events = repository.pullDomainEvents();
-    if (events.length > 0) {
-      await this.eventPublisher.publish(events);
-    }
+  private async publish(events: readonly RepositoryApplicationEvent[]): Promise<void> {
+    if (events.length > 0) await this.eventPublisher.publish(events);
   }
 }
