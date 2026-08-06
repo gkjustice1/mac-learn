@@ -1,3 +1,11 @@
+import {
+  RepositoryDisplayName,
+  RepositoryId,
+  RepositoryName,
+  RepositoryOwnerId,
+  TenantId,
+} from './value-objects';
+
 export type RepositoryType =
   | 'MASTER_BLUEPRINT'
   | 'ENGINEERING'
@@ -88,23 +96,24 @@ export class Repository {
     now?: Date;
   }): Repository {
     const now = input.now ?? new Date();
-    Repository.assertIdentifier(input.id, 'Repository id');
-    Repository.assertIdentifier(input.tenantId, 'Tenant id');
-    Repository.assertName(input.name);
-    Repository.assertDisplayName(input.displayName);
-    Repository.assertOwner(input.owner);
+    const id = RepositoryId.create(input.id);
+    const tenantId = TenantId.create(input.tenantId);
+    const name = RepositoryName.create(input.name);
+    const displayName = RepositoryDisplayName.create(input.displayName);
+    const ownerId = RepositoryOwnerId.create(input.owner.userId);
+    const ownerDisplayName = Repository.requireText(input.owner.displayName, 'Owner display name');
 
     const repository = new Repository({
-      id: input.id.trim(),
-      tenantId: input.tenantId.trim(),
-      name: input.name.trim(),
-      displayName: input.displayName.trim(),
+      id: id.value,
+      tenantId: tenantId.value,
+      name: name.value,
+      displayName: displayName.value,
       description: Repository.normalizeDescription(input.description),
       type: input.type,
       status: 'ACTIVE',
       visibility: input.visibility ?? 'PRIVATE',
       classification: input.classification ?? 'INTERNAL',
-      owner: { ...input.owner },
+      owner: { userId: ownerId.value, displayName: ownerDisplayName },
       createdAt: new Date(now),
       updatedAt: new Date(now),
     });
@@ -120,19 +129,24 @@ export class Repository {
   }
 
   public static rehydrate(props: RepositoryProps): Repository {
-    Repository.assertIdentifier(props.id, 'Repository id');
-    Repository.assertIdentifier(props.tenantId, 'Tenant id');
-    Repository.assertName(props.name);
-    Repository.assertDisplayName(props.displayName);
-    Repository.assertOwner(props.owner);
+    RepositoryId.create(props.id);
+    TenantId.create(props.tenantId);
+    RepositoryName.create(props.name);
+    RepositoryDisplayName.create(props.displayName);
+    RepositoryOwnerId.create(props.owner.userId);
+    Repository.requireText(props.owner.displayName, 'Owner display name');
 
     if (props.status === 'ARCHIVED' && !props.archivedAt) {
       throw new RepositoryDomainError('Archived repositories require archivedAt.');
+    }
+    if (props.status === 'ACTIVE' && props.archivedAt) {
+      throw new RepositoryDomainError('Active repositories cannot have archivedAt.');
     }
 
     return new Repository({
       ...props,
       owner: { ...props.owner },
+      description: Repository.normalizeDescription(props.description),
       createdAt: new Date(props.createdAt),
       updatedAt: new Date(props.updatedAt),
       archivedAt: props.archivedAt ? new Date(props.archivedAt) : undefined,
@@ -173,13 +187,9 @@ export class Repository {
   }): void {
     this.assertActive();
 
-    if (input.name !== undefined) {
-      Repository.assertName(input.name);
-      this.props.name = input.name.trim();
-    }
+    if (input.name !== undefined) this.props.name = RepositoryName.create(input.name).value;
     if (input.displayName !== undefined) {
-      Repository.assertDisplayName(input.displayName);
-      this.props.displayName = input.displayName.trim();
+      this.props.displayName = RepositoryDisplayName.create(input.displayName).value;
     }
     if (input.description !== undefined) {
       this.props.description = Repository.normalizeDescription(input.description ?? undefined);
@@ -188,8 +198,10 @@ export class Repository {
     if (input.visibility !== undefined) this.props.visibility = input.visibility;
     if (input.classification !== undefined) this.props.classification = input.classification;
     if (input.owner !== undefined) {
-      Repository.assertOwner(input.owner);
-      this.props.owner = { ...input.owner };
+      this.props.owner = {
+        userId: RepositoryOwnerId.create(input.owner.userId).value,
+        displayName: Repository.requireText(input.owner.displayName, 'Owner display name'),
+      };
     }
 
     const now = input.now ?? new Date();
@@ -244,35 +256,10 @@ export class Repository {
     }
   }
 
-  private static assertIdentifier(value: string, label: string): void {
-    if (!value || value.trim().length === 0) {
-      throw new RepositoryDomainError(`${label} is required.`);
-    }
-  }
-
-  private static assertName(value: string): void {
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.trim())) {
-      throw new RepositoryDomainError(
-        'Repository name must use lowercase letters, numbers, and single hyphens.',
-      );
-    }
-    if (value.trim().length > 100) {
-      throw new RepositoryDomainError('Repository name cannot exceed 100 characters.');
-    }
-  }
-
-  private static assertDisplayName(value: string): void {
-    const length = value.trim().length;
-    if (length < 3 || length > 160) {
-      throw new RepositoryDomainError(
-        'Repository display name must be between 3 and 160 characters.',
-      );
-    }
-  }
-
-  private static assertOwner(owner: RepositoryOwner): void {
-    Repository.assertIdentifier(owner.userId, 'Owner user id');
-    Repository.assertIdentifier(owner.displayName, 'Owner display name');
+  private static requireText(value: string, label: string): string {
+    const normalized = value.trim();
+    if (!normalized) throw new RepositoryDomainError(`${label} is required.`);
+    return normalized;
   }
 
   private static normalizeDescription(value?: string): string | undefined {
