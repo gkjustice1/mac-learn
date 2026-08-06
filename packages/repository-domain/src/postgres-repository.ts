@@ -32,6 +32,13 @@ export interface RepositoryStore {
   delete(tenantId: string, repositoryId: string): Promise<boolean>;
 }
 
+export interface RepositoryUnitOfWork {
+  execute<T>(work: (store: RepositoryStore) => Promise<T>): Promise<T>;
+}
+
+type QueryExecutor = Pick<PoolClient, 'query'>;
+type TransactionConnector = Partial<Pick<Pool, 'connect'>>;
+
 export function mapRepositoryToParameters(repository: Repository): readonly unknown[] {
   const snapshot = repository.snapshot;
   return [
@@ -75,11 +82,11 @@ export function mapRowToRepository(row: RepositoryRow): Repository {
   return Repository.rehydrate(props);
 }
 
-export class PostgresRepositoryStore implements RepositoryStore {
-  public constructor(private readonly pool: Pick<Pool, 'query' | 'connect'>) {}
+export class PostgresRepositoryStore implements RepositoryStore, RepositoryUnitOfWork {
+  public constructor(private readonly executor: QueryExecutor & TransactionConnector) {}
 
   public async save(repository: Repository): Promise<void> {
-    await this.pool.query(
+    await this.executor.query(
       `INSERT INTO repositories (
         id, tenant_id, name, display_name, description, repository_type,
         status, visibility, classification, owner_user_id, owner_display_name,
@@ -104,7 +111,7 @@ export class PostgresRepositoryStore implements RepositoryStore {
   }
 
   public async findById(tenantId: string, repositoryId: string): Promise<Repository | null> {
-    const result = await this.pool.query<RepositoryRow>(
+    const result = await this.executor.query<RepositoryRow>(
       `SELECT * FROM repositories WHERE tenant_id = $1 AND id = $2`,
       [tenantId, repositoryId],
     );
@@ -113,7 +120,7 @@ export class PostgresRepositoryStore implements RepositoryStore {
   }
 
   public async listByTenant(tenantId: string): Promise<Repository[]> {
-    const result = await this.pool.query<RepositoryRow>(
+    const result = await this.executor.query<RepositoryRow>(
       `SELECT * FROM repositories WHERE tenant_id = $1 ORDER BY created_at, id`,
       [tenantId],
     );
@@ -122,7 +129,7 @@ export class PostgresRepositoryStore implements RepositoryStore {
   }
 
   public async delete(tenantId: string, repositoryId: string): Promise<boolean> {
-    const result = await this.pool.query(
+    const result = await this.executor.query(
       `DELETE FROM repositories WHERE tenant_id = $1 AND id = $2`,
       [tenantId, repositoryId],
     );
@@ -130,11 +137,16 @@ export class PostgresRepositoryStore implements RepositoryStore {
     return (result.rowCount ?? 0) > 0;
   }
 
-  public async withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await this.pool.connect();
+  public async execute<T>(work: (store: RepositoryStore) => Promise<T>): Promise<T> {
+    if (!this.executor.connect) {
+      return work(this);
+    }
+
+    const client = await this.executor.connect();
+    const transactionalStore = new PostgresRepositoryStore(client);
     try {
       await client.query('BEGIN');
-      const result = await work(client);
+      const result = await work(transactionalStore);
       await client.query('COMMIT');
       return result;
     } catch (error) {
