@@ -9,6 +9,7 @@ on:
     branches:
       - 'agent/s1-001-1-repository-domain'
       - 'agent/s1-001-2-repository-persistence'
+      - 'agent/s1-001-3-repository-application-service'
     paths:
       - 'packages/repository-domain/**'
       - '.github/workflows/repository-domain-ci.yml'
@@ -56,8 +57,14 @@ jobs:
       - name: Run migrations
         run: npm run migrate
 
-      - name: Unit tests
-        run: npm run test:unit
+      - name: Repository aggregate unit tests
+        run: npx vitest run src/repository.test.ts
 
-      - name: PostgreSQL integration tests
-        run: npm run test:integration
+      - name: Application service unit tests
+        run: npx vitest run src/repository-application-service.test.ts
+
+      - name: Repository persistence integration tests
+        run: npx vitest run src/postgres-repository.integration.test.ts
+
+      - name: Application service PostgreSQL integration tests
+        run: npx vitest run src/repository-application-service.integration.test.ts
