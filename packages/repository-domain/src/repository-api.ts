@@ -20,7 +20,7 @@ import {
 } from './repository-application-service';
 import type { Repository } from './repository';
 
-export interface ApiRequest<TBody = unknown, TQuery = Record<string, unknown>> {
+export interface ApiRequest<TBody = unknown, TQuery = unknown> {
   principal?: ApiPrincipal;
   params: { repositoryId?: string };
   query: TQuery;
