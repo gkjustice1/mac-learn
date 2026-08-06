@@ -1,6 +1,7 @@
 name: Repository Domain CI
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'packages/repository-domain/**'
