@@ -143,7 +143,9 @@ export class PostgresRepositoryStore implements RepositoryStore, RepositoryUnitO
     }
 
     const client = await this.executor.connect();
-    const transactionalStore = new PostgresRepositoryStore(client);
+    const transactionalStore = new PostgresRepositoryStore({
+      query: client.query.bind(client),
+    });
     try {
       await client.query('BEGIN');
       const result = await work(transactionalStore);
