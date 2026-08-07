@@ -1,0 +1,25 @@
+{
+  "name": "meaf-s1-001-4-repository-api-assessment",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "migrate": "tsx scripts/migrate.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run src/**/*.unit.test.ts",
+    "test:contract": "vitest run src/**/*.contract.test.ts",
+    "test:integration": "vitest run src/**/*.integration.test.ts"
+  },
+  "dependencies": {
+    "graphql": "^16.9.0",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
