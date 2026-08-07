@@ -1,6 +1,7 @@
 name: Repository Domain CI
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - 'packages/repository-domain/**'
@@ -10,6 +11,7 @@ on:
       - 'agent/s1-001-1-repository-domain'
       - 'agent/s1-001-2-repository-persistence'
       - 'agent/s1-001-3-repository-application-service'
+      - 'agent/s1-001-4-repository-api'
     paths:
       - 'packages/repository-domain/**'
       - '.github/workflows/repository-domain-ci.yml'
@@ -68,3 +70,9 @@ jobs:
 
       - name: Application service PostgreSQL integration tests
         run: npx vitest run src/repository-application-service.integration.test.ts
+
+      - name: Repository API unit and contract tests
+        run: npx vitest run src/repository-api.test.ts
+
+      - name: Repository API PostgreSQL integration tests
+        run: npx vitest run src/repository-api.integration.test.ts
