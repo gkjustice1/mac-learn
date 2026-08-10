@@ -23,9 +23,18 @@ export async function updatePassword(formData: FormData) {
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.updateUser({
-    password,
-  });
+const {
+  data: { user },
+  error: userError,
+} = await supabase.auth.getUser();
+
+if (userError || !user) {
+  redirect("/login?error=recovery_failed");
+}
+
+const { error } = await supabase.auth.updateUser({
+  password,
+});
 
   if (error) {
     redirect("/update-password?error=password_update_failed");

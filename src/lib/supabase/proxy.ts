@@ -40,9 +40,7 @@ export async function updateSession(request: NextRequest) {
  const isPublicAuthRoute =
   pathname === "/login" ||
   pathname === "/forgot-password" ||
-  pathname === "/auth/callback" ||
-  pathname === "/update-password";
-
+  pathname === "/auth/callback";
   if (!user && !isPublicAuthRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";

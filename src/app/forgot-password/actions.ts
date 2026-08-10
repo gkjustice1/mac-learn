@@ -1,6 +1,6 @@
 "use server";
 
-import { headers } from "next/headers";
+
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -12,27 +12,19 @@ export async function requestPasswordReset(formData: FormData) {
     redirect("/forgot-password?error=missing_email");
   }
 
-  const headerStore = await headers();
-  const origin = headerStore.get("origin");
+const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-  if (!origin) {
-    redirect("/forgot-password?error=recovery_failed");
-  }
-
+if (!appUrl) {
+  redirect("/forgot-password?error=recovery_failed");
+}
   const supabase = await createClient();
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/auth/callback`,
+    redirectTo: `${appUrl}/auth/callback`,
   });
 
   if (error) {
-  console.error("Password recovery failed:", {
-    message: error.message,
-    status: error.status,
-    code: error.code,
-  });
-
-  const message = error.message.toLowerCase();
+    const message = error.message.toLowerCase();
 
   if (message.includes("rate limit")) {
     redirect("/forgot-password?error=rate_limited");
