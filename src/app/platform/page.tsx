@@ -1,11 +1,32 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requirePlatformAdmin } from "@/lib/auth/authorization";
+import { createClient } from "@/lib/supabase/server";
+
+export default async function PlatformPage() {
+  await requirePlatformAdmin();
+
+const supabase = await createClient();
+
+const { count: organizationCount, error: organizationCountError } =
+  await supabase
+    .from("organizations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active");
+
+if (organizationCountError) {
+  throw new Error(
+    `Unable to load organization count: ${organizationCountError.message}`
+  );
+}
 
 const metrics = [
   {
     label: "Organizations",
-    value: "1",
-    detail: "Active organization",
+    value: String(organizationCount ?? 0),
+    detail:
+      organizationCount === 1
+        ? "Active organization"
+        : "Active organizations",
   },
   {
     label: "Sites",
@@ -18,9 +39,6 @@ const metrics = [
     detail: "Platform admin access",
   },
 ];
-
-export default async function PlatformPage() {
-  await requirePlatformAdmin();
 
   return (
     <AdminShell>
