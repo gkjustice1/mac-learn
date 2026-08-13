@@ -3,28 +3,38 @@ import type { ReactNode } from "react";
 
 type AdminShellProps = {
   children: ReactNode;
+  activeItem?: "dashboard" | "organizations" | "sites" | "access";
+
 };
 
 const navigation = [
   {
+    key: "dashboard",
     label: "Dashboard",
     href: "/platform",
   },
   {
+    key: "organizations",
     label: "Organizations",
-    href: "/platform",
+    href: "/platform/organizations",
   },
   {
+    key: "sites",
     label: "Sites",
     href: "/platform",
   },
   {
+    key: "access",
     label: "Access & Roles",
     href: "/platform",
   },
-];
+] as const;
 
-export function AdminShell({ children }: AdminShellProps) {
+export function AdminShell({
+  children,
+  activeItem = "dashboard",
+}: AdminShellProps) {
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="grid min-h-screen lg:grid-cols-[260px_1fr]">
@@ -49,8 +59,8 @@ export function AdminShell({ children }: AdminShellProps) {
 
             <nav className="flex-1 px-4 py-5">
               <div className="grid gap-2">
-                {navigation.map((item, index) => {
-                  const active = index === 0;
+                {navigation.map((item) => {
+  const active = item.key === activeItem;
 
                   return (
                     <Link
