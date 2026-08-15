@@ -21,7 +21,7 @@ const navigation = [
   {
     key: "sites",
     label: "Sites",
-    href: "/platform",
+    href: "/platform/sites",
   },
   {
     key: "access",

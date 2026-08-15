@@ -19,6 +19,17 @@ if (organizationCountError) {
   );
 }
 
+const { count: siteCount, error: siteCountError } = await supabase
+  .from("sites")
+  .select("id", { count: "exact", head: true })
+  .eq("status", "active");
+
+if (siteCountError) {
+  throw new Error(
+    `Unable to load site count: ${siteCountError.message}`
+  );
+}
+
 const metrics = [
   {
     label: "Organizations",
@@ -30,8 +41,11 @@ const metrics = [
   },
   {
     label: "Sites",
-    value: "1",
-    detail: "Active site",
+  value: String(siteCount ?? 0),
+  detail:
+    siteCount === 1
+      ? "Active site"
+      : "Active sites",
   },
   {
     label: "Authorization",
