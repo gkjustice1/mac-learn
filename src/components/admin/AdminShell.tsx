@@ -26,7 +26,7 @@ const navigation = [
   {
     key: "access",
     label: "Access & Roles",
-    href: "/platform",
+    href: "/platform/access-roles",
   },
 ] as const;
 
