@@ -1,8 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requirePlatformAdmin } from "@/lib/auth/authorization";
 import { createClient } from "@/lib/supabase/server";
+
+const PAGE_SIZE = 100;
+
+type PlatformAccessRolesPageProps = {
+  searchParams: Promise<{
+    page?: string;
+  }>;
+};
 
 function formatRole(roleKey: string) {
   return roleKey
@@ -23,10 +32,48 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-export default async function PlatformAccessRolesPage() {
+export default async function PlatformAccessRolesPage({
+  searchParams,
+}: PlatformAccessRolesPageProps) {
   await requirePlatformAdmin();
 
+  const resolvedSearchParams = await searchParams;
+
+  const requestedPage = Number.parseInt(
+    resolvedSearchParams.page ?? "1",
+    10
+  );
+
+  const requestedPageNumber =
+    Number.isFinite(requestedPage) && requestedPage > 0
+      ? requestedPage
+      : 1;
+
   const supabase = await createClient();
+
+  const { count, error: countError } = await supabase
+    .from("role_assignments")
+    .select("id", { count: "exact", head: true });
+
+  if (countError) {
+    throw new Error(
+      `Unable to count role assignments: ${countError.message}`
+    );
+  }
+
+  const totalAssignments = count ?? 0;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalAssignments / PAGE_SIZE)
+  );
+
+  if (requestedPageNumber > totalPages) {
+    redirect(`/platform/access-roles?page=${totalPages}`);
+  }
+
+  const currentPage = requestedPageNumber;
+  const from = (currentPage - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
   const { data: assignments, error } = await supabase
     .from("role_assignments")
@@ -58,7 +105,9 @@ export default async function PlatformAccessRolesPage() {
         )
       `
     )
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(from, to);
 
   if (error) {
     throw new Error(`Unable to load role assignments: ${error.message}`);
@@ -207,6 +256,41 @@ export default async function PlatformAccessRolesPage() {
               </table>
             </div>
           )}
+        </section>
+
+        <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-600">
+            Page {currentPage} of {totalPages} · {totalAssignments} role{" "}
+            {totalAssignments === 1 ? "assignment" : "assignments"}
+          </p>
+
+          <div className="flex items-center gap-2">
+            {currentPage > 1 ? (
+              <Link
+                href={`/platform/access-roles?page=${currentPage - 1}`}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Previous
+              </Link>
+            ) : (
+              <span className="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-400">
+                Previous
+              </span>
+            )}
+
+            {currentPage < totalPages ? (
+              <Link
+                href={`/platform/access-roles?page=${currentPage + 1}`}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Next
+              </Link>
+            ) : (
+              <span className="cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-400">
+                Next
+              </span>
+            )}
+          </div>
         </section>
       </div>
     </AdminShell>
