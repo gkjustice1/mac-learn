@@ -119,11 +119,6 @@ export async function createRoleAssignment(
 
     let siteId = getOptionalString(formData, "site_id");
 
-    const validUntilValue = getOptionalString(
-      formData,
-      "valid_until"
-    );
-
     if (PLATFORM_ROLES.includes(roleKey)) {
       organizationId = null;
       siteId = null;
@@ -173,7 +168,7 @@ export async function createRoleAssignment(
         error: organizationError,
       } = await supabase
         .from("organizations")
-        .select("id")
+        .select("id, status")
         .eq("id", organizationId)
         .maybeSingle();
 
@@ -188,6 +183,12 @@ export async function createRoleAssignment(
           "The selected organization does not exist."
         );
       }
+
+      if (organization.status !== "active") {
+        throw new Error(
+          "Role assignments can only be created for active organizations."
+        );
+      }
     }
 
     if (siteId) {
@@ -199,7 +200,7 @@ export async function createRoleAssignment(
 
       const { data: site, error: siteError } = await supabase
         .from("sites")
-        .select("id, organization_id")
+        .select("id, organization_id, status")
         .eq("id", siteId)
         .maybeSingle();
 
@@ -218,24 +219,12 @@ export async function createRoleAssignment(
           "The selected site does not belong to the selected organization."
         );
       }
-    }
 
-    let validUntil: string | null = null;
-
-    if (validUntilValue) {
-      const parsedValidUntil = new Date(validUntilValue);
-
-      if (Number.isNaN(parsedValidUntil.getTime())) {
-        throw new Error("The expiration date is invalid.");
-      }
-
-      if (parsedValidUntil.getTime() <= Date.now()) {
+      if (site.status !== "active") {
         throw new Error(
-          "The expiration date must be in the future."
+          "Role assignments can only be created for active sites."
         );
       }
-
-      validUntil = parsedValidUntil.toISOString();
     }
 
     const { error: insertError } = await supabase
@@ -246,7 +235,6 @@ export async function createRoleAssignment(
         organization_id: organizationId,
         site_id: siteId,
         status: "active",
-        valid_until: validUntil,
       });
 
     if (insertError) {

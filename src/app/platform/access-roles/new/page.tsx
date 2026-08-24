@@ -36,11 +36,13 @@ export default async function NewPlatformRoleAssignmentPage() {
     supabase
       .from("organizations")
       .select("id, name, status")
+      .eq("status", "active")
       .order("name", { ascending: true }),
 
     supabase
       .from("sites")
       .select("id, name, organization_id, status")
+      .eq("status", "active")
       .order("name", { ascending: true }),
   ]);
 
@@ -84,20 +86,14 @@ export default async function NewPlatformRoleAssignmentPage() {
   const organizationOptions = organizations.map(
     (organization) => ({
       id: organization.id,
-      label:
-        organization.status === "active"
-          ? organization.name
-          : `${organization.name} (${organization.status})`,
+      label: organization.name,
     })
   );
 
   const siteOptions = sites.map((site) => ({
     id: site.id,
     organizationId: site.organization_id,
-    label:
-      site.status === "active"
-        ? site.name
-        : `${site.name} (${site.status})`,
+    label: site.name,
   }));
 
   return (
@@ -114,9 +110,10 @@ export default async function NewPlatformRoleAssignmentPage() {
             </h2>
 
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Assign an active MAC Learn user a role and authorization
-              scope. Database constraints and Row Level Security remain
-              authoritative.
+              Assign an active MAC Learn user an active role and
+              authorization scope. Only active organizations and sites
+              may receive new assignments. Database constraints and Row
+              Level Security remain authoritative.
             </p>
           </div>
 

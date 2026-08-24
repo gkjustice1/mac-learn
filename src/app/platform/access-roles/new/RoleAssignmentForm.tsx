@@ -252,7 +252,7 @@ export function RoleAssignmentForm({
           >
             <option value="">
               {organizationRequired
-                ? "Select an organization"
+                ? "Select an active organization"
                 : "No organization"}
             </option>
 
@@ -286,7 +286,7 @@ export function RoleAssignmentForm({
           >
             <option value="">
               {isSiteRequiredRole
-                ? "Select a site"
+                ? "Select an active site"
                 : "No site"}
             </option>
 
@@ -299,27 +299,6 @@ export function RoleAssignmentForm({
         </div>
       </div>
 
-      <div className="grid gap-2">
-        <label
-          htmlFor="valid_until"
-          className="text-sm font-semibold text-slate-800"
-        >
-          Expiration
-        </label>
-
-        <input
-          id="valid_until"
-          name="valid_until"
-          type="datetime-local"
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900"
-        />
-
-        <p className="text-xs leading-5 text-slate-500">
-          Optional. Leave blank for no expiration. The assignment
-          starts immediately when created.
-        </p>
-      </div>
-
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
         <p className="text-sm font-semibold text-amber-900">
           Authorization scope is enforced on the server and in
@@ -327,8 +306,9 @@ export function RoleAssignmentForm({
         </p>
 
         <p className="mt-1 text-xs leading-5 text-amber-800">
-          Invalid role/scope combinations, mismatched
-          organization/site selections, inactive users, and
+          Only active users, active organizations, and active sites
+          may receive new assignments. Invalid role/scope
+          combinations, mismatched organization/site selections, and
           duplicate active assignments will be rejected.
         </p>
       </div>
