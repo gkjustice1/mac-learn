@@ -10,6 +10,7 @@ const PAGE_SIZE = 100;
 type PlatformAccessRolesPageProps = {
   searchParams: Promise<{
     page?: string;
+    created?: string;
   }>;
 };
 
@@ -132,13 +133,30 @@ export default async function PlatformAccessRolesPage({
             </p>
           </div>
 
-          <Link
-            href="/platform"
-            className="text-sm font-semibold text-slate-700 hover:text-slate-950"
-          >
-            Back to dashboard
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/platform/access-roles/new"
+              className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Create role assignment
+            </Link>
+
+            <Link
+              href="/platform"
+              className="text-sm font-semibold text-slate-700 hover:text-slate-950"
+            >
+              Back to dashboard
+            </Link>
+          </div>
         </section>
+
+        {resolvedSearchParams.created === "1" ? (
+          <section className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">
+            <p className="text-sm font-semibold text-emerald-900">
+              Role assignment created successfully.
+            </p>
+          </section>
+        ) : null}
 
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           {assignments.length === 0 ? (
@@ -215,6 +233,7 @@ export default async function PlatformAccessRolesPage({
                           <p className="font-semibold text-slate-950">
                             {displayName}
                           </p>
+
                           <p className="mt-1 text-xs text-slate-500">
                             {person?.primary_email ?? user?.id ?? "Unavailable"}
                           </p>
