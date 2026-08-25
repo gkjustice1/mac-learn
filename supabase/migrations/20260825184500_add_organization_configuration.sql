@@ -110,18 +110,29 @@ using (
 );
 
 drop policy if exists
-  "Platform admins manage organization configuration"
+  "Platform admins view organization configuration"
 on public.organization_configurations;
 
 create policy
-  "Platform admins manage organization configuration"
+  "Platform admins view organization configuration"
 on public.organization_configurations
-for all
+for select
+to authenticated
+using ((select public.mac_is_platform_admin()));
+
+drop policy if exists
+  "Platform admins update organization configuration"
+on public.organization_configurations;
+
+create policy
+  "Platform admins update organization configuration"
+on public.organization_configurations
+for update
 to authenticated
 using ((select public.mac_is_platform_admin()))
 with check ((select public.mac_is_platform_admin()));
 
-grant select, insert, update, delete
+grant select, update
 on table public.organization_configurations
 to authenticated;
 
