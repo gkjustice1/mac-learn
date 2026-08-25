@@ -130,7 +130,9 @@ export default async function PlatformAccessRolesPage({
         .select(
           "id, assignment_id, related_assignment_id, actor_user_id, event_type, reason, occurred_at"
         )
-        .in("assignment_id", assignmentIds)
+        .or(
+          `assignment_id.in.(${assignmentIds.join(",")}),related_assignment_id.in.(${assignmentIds.join(",")})`
+        )
         .order("occurred_at", { ascending: false })
     : { data: [], error: null };
 
@@ -275,7 +277,9 @@ export default async function PlatformAccessRolesPage({
                         : "Platform-wide";
 
                     const assignmentEvents = events.filter(
-                      (event) => event.assignment_id === assignment.id
+                      (event) =>
+                        event.assignment_id === assignment.id ||
+                        event.related_assignment_id === assignment.id
                     );
 
                     const isEffectivelyExpired =
@@ -401,7 +405,13 @@ export default async function PlatformAccessRolesPage({
                                       <p>{new Date(event.occurred_at).toLocaleString("en-US")}</p>
                                       <p>Actor: {event.actor_user_id ?? "System"}</p>
                                       {event.reason ? <p>Reason: {event.reason}</p> : null}
-                                      {event.related_assignment_id ? <p>Renews: {event.related_assignment_id}</p> : null}
+                                      {event.related_assignment_id ? (
+                                        <p>
+                                          {event.assignment_id === assignment.id
+                                            ? `Renews: ${event.related_assignment_id}`
+                                            : `Replacement: ${event.assignment_id}`}
+                                        </p>
+                                      ) : null}
                                     </li>
                                   ))}
                                 </ol>
