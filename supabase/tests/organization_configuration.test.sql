@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, email)
 values
@@ -63,12 +63,21 @@ select is(
   'platform-admin update persists'
 );
 
+select ok(
+  not has_table_privilege(
+    current_user,
+    'public.organization_configurations',
+    'DELETE'
+  ),
+  'a platform admin does not have DELETE privilege on organization configuration'
+);
+
 select throws_ok(
   'delete from public.organization_configurations
     where organization_id = ''50000000-0000-4000-8000-000000000001''',
   '42501',
   'permission denied for table organization_configurations',
-  'a platform admin cannot delete the seeded organization configuration'
+  'a platform-admin delete attempt is rejected by table privileges'
 );
 
 select is(
