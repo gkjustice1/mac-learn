@@ -111,13 +111,48 @@ function getErrorMessage(error: unknown) {
 
 function getSupportedLocales(formData: FormData) {
   const value = getRequiredString(formData, "supported_locales");
-  const locales = [...new Set(value.split(",").map((locale) => locale.trim()).filter(Boolean))];
+  const locales = value
+    .split(",")
+    .map((locale) => locale.trim())
+    .filter(Boolean)
+    .map((locale) => {
+      try {
+        return Intl.getCanonicalLocales(locale)[0];
+      } catch {
+        throw new Error(
+          "Supported locales must be comma-separated valid BCP 47 locale tags, such as en-US, es-419, or zh-Hant-TW."
+        );
+      }
+    });
 
-  if (locales.length === 0 || locales.some((locale) => !/^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(locale))) {
-    throw new Error("Supported locales must be comma-separated locale codes, such as en-US, es-US.");
+  if (locales.length === 0) {
+    throw new Error("At least one supported locale is required.");
   }
 
-  return locales;
+  return [...new Set(locales)];
+}
+
+function getCanonicalLocale(formData: FormData, fieldName: string) {
+  const value = getRequiredString(formData, fieldName);
+
+  try {
+    return Intl.getCanonicalLocales(value)[0];
+  } catch {
+    throw new Error(`${fieldName} must be a valid BCP 47 locale tag.`);
+  }
+}
+
+function getCanonicalTimezone(formData: FormData) {
+  const value = getRequiredString(formData, "default_timezone");
+
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: value })
+      .resolvedOptions().timeZone;
+  } catch {
+    throw new Error(
+      "default_timezone must be a valid IANA timezone, such as America/New_York."
+    );
+  }
 }
 
 export async function saveOrganizationConfiguration(
@@ -128,8 +163,8 @@ export async function saveOrganizationConfiguration(
 
   try {
     const organizationId = getRequiredString(formData, "organization_id");
-    const defaultTimezone = getRequiredString(formData, "default_timezone");
-    const defaultLocale = getRequiredString(formData, "default_locale");
+    const defaultTimezone = getCanonicalTimezone(formData);
+    const defaultLocale = getCanonicalLocale(formData, "default_locale");
     const supportedLocales = getSupportedLocales(formData);
     const academicYearStartMonth = Number(
       getRequiredString(formData, "academic_year_start_month")
