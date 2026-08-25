@@ -7,6 +7,7 @@ import {
   type MacRole,
   requirePlatformAdmin,
 } from "@/lib/auth/authorization";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 type RoleAssignmentActionState = {
@@ -163,6 +164,11 @@ export async function saveOrganizationConfiguration(
 
   try {
     const organizationId = getRequiredString(formData, "organization_id");
+
+    if (!UUID_PATTERN.test(organizationId)) {
+      throw new Error("organization_id must be a valid UUID.");
+    }
+
     const defaultTimezone = getCanonicalTimezone(formData);
     const defaultLocale = getCanonicalLocale(formData, "default_locale");
     const supportedLocales = getSupportedLocales(formData);
@@ -178,8 +184,8 @@ export async function saveOrganizationConfiguration(
       throw new Error("The default locale must be included in supported locales.");
     }
 
-    const supabase = await createClient();
-    const { error } = await supabase
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
       .from("organization_configurations")
       .update({
         default_timezone: defaultTimezone,
@@ -188,17 +194,23 @@ export async function saveOrganizationConfiguration(
         academic_year_start_month: academicYearStartMonth,
         attendance_required: formData.get("attendance_required") === "on",
       })
-      .eq("organization_id", organizationId);
+      .eq("organization_id", organizationId)
+      .select("organization_id")
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Unable to save organization configuration: ${error.message}`);
     }
+
+    if (!data) {
+      throw new Error("Organization configuration not found.");
+    }
+
+    revalidatePath("/platform/organizations");
+    revalidatePath(`/platform/organizations/${organizationId}/configuration`);
   } catch (error) {
     return { error: getErrorMessage(error) };
   }
-
-  revalidatePath("/platform/organizations");
-  revalidatePath(`/platform/organizations/${formData.get("organization_id")}/configuration`);
 
   return { error: null };
 }

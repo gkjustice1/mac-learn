@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(27);
+select plan(18);
 
 insert into auth.users (id, email)
 values
@@ -66,17 +66,35 @@ select is(
   'an authenticated platform-admin organization creation seeds its configuration'
 );
 
-select lives_ok(
+select is(
+  (select count(*) from public.organization_configurations where organization_id = '50000000-0000-4000-8000-000000000001'),
+  1::bigint,
+  'a platform admin can read organization configuration'
+);
+
+select ok(
+  not has_table_privilege(
+    current_user,
+    'public.organization_configurations',
+    'UPDATE'
+  ),
+  'authenticated users do not have direct UPDATE privilege on organization configuration'
+);
+
+select throws_ok(
   'update public.organization_configurations
-      set default_timezone = ''America/Chicago'', academic_year_start_month = 7
+      set default_locale = ''abcd'',
+          supported_locales = array[''abcd'']::text[]
     where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  'a platform admin can update organization configuration'
+  '42501',
+  'permission denied for table organization_configurations',
+  'a platform-admin direct Data API update is rejected before locale values reach the database'
 );
 
 select is(
-  (select default_timezone from public.organization_configurations where organization_id = '50000000-0000-4000-8000-000000000001'),
-  'America/Chicago',
-  'platform-admin update persists'
+  (select default_locale from public.organization_configurations where organization_id = '50000000-0000-4000-8000-000000000001'),
+  'en-US',
+  'the locale remains unchanged after a denied direct update'
 );
 
 select ok(
@@ -102,131 +120,25 @@ select is(
   'the seeded organization configuration remains after a denied delete'
 );
 
-select throws_ok(
-  'update public.organization_configurations
-      set default_timezone = ''America/NewYork''
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'default_timezone must be a valid IANA timezone: America/NewYork',
-  'invalid IANA timezones are rejected by the database'
-);
+set local role service_role;
 
 select lives_ok(
   'update public.organization_configurations
-      set default_timezone = ''America/Los_Angeles''
+      set default_timezone = ''America/Chicago'',
+          default_locale = ''es-419'',
+          supported_locales = array[''en-US'', ''es-419'']::text[],
+          academic_year_start_month = 7
     where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  'valid IANA timezones are accepted by the database'
+  'the server-only administrative role can update organization configuration'
 );
 
-select throws_ok(
-  'update public.organization_configurations
-      set default_locale = ''not_a_locale''
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'default_locale must be a valid BCP 47 locale tag: not_a_locale',
-  'invalid default locales are rejected by the database'
+select is(
+  (select default_locale from public.organization_configurations where organization_id = '50000000-0000-4000-8000-000000000001'),
+  'es-419',
+  'the server-only administrative update persists'
 );
 
-select throws_ok(
-  'update public.organization_configurations
-      set supported_locales = array[''en-US'', ''not_a_locale'']::text[]
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'supported_locales must contain only valid BCP 47 locale tags',
-  'invalid supported locales are rejected by the database'
-);
-
-select throws_ok(
-  'update public.organization_configurations
-      set supported_locales = array[''en-US'', ''en-u-ca-gregory-u-nu-latn'']::text[]
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'supported_locales must contain only valid BCP 47 locale tags',
-  'supported locales with repeated extension singletons are rejected by the database'
-);
-
-select throws_ok(
-  'update public.organization_configurations
-      set default_locale = ''en-a-abc-A-def''
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'default_locale must be a valid BCP 47 locale tag: en-a-abc-A-def',
-  'default locales with mixed-case repeated extension singletons are rejected by the database'
-);
-
-select throws_ok(
-  'update public.organization_configurations
-      set supported_locales = array[''en-US'', ''en-a-abc-A-def'']::text[]
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'supported_locales must contain only valid BCP 47 locale tags',
-  'supported locales with mixed-case repeated extension singletons are rejected by the database'
-);
-
-select throws_ok(
-  'update public.organization_configurations
-      set default_locale = ''de-1901-1901''
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'default_locale must be a valid BCP 47 locale tag: de-1901-1901',
-  'default locales with repeated variant subtags are rejected by the database'
-);
-
-select throws_ok(
-  'update public.organization_configurations
-      set supported_locales = array[''en-US'', ''de-1901-1901'']::text[]
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'supported_locales must contain only valid BCP 47 locale tags',
-  'supported locales with repeated variant subtags are rejected by the database'
-);
-
-select throws_ok(
-  'update public.organization_configurations
-      set default_locale = ''sl-rozaj-ROZAJ''
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'default_locale must be a valid BCP 47 locale tag: sl-rozaj-ROZAJ',
-  'mixed-case repeated variant subtags are rejected by the database'
-);
-
-select lives_ok(
-  'update public.organization_configurations
-      set default_locale = ''sl-rozaj-biske'',
-          supported_locales = array[''sl-rozaj-biske'']::text[]
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  'valid distinct variant subtags are accepted by the database'
-);
-
-select lives_ok(
-  'update public.organization_configurations
-      set default_locale = ''de-CH-1901-a-extend1-b-extend1'',
-          supported_locales = array[''de-CH-1901-a-extend1-b-extend1'']::text[]
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  'extension payloads are not misclassified as locale variants'
-);
-
-select lives_ok(
-  'update public.organization_configurations
-      set default_locale = ''en-US-u-ca-islamic-civil-co-phonebk-hc-h24-kf-upper-kn-nu-arab-tz-usnyc'',
-          supported_locales = array[''en-US-u-ca-islamic-civil-co-phonebk-hc-h24-kf-upper-kn-nu-arab-tz-usnyc'']::text[]
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  'valid long BCP 47 locales are accepted by the database'
-);
-
-select throws_ok(
-  'update public.organization_configurations
-      set default_timezone = ''Factory''
-    where organization_id = ''50000000-0000-4000-8000-000000000001''',
-  '22023',
-  'default_timezone must be a valid IANA timezone: Factory',
-  'PostgreSQL-only timezone aliases are rejected by the database'
-);
-
-update public.organization_configurations
-set default_timezone = 'America/Chicago'
-where organization_id = '50000000-0000-4000-8000-000000000001';
-
+set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"40000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 
 select is(
@@ -235,14 +147,19 @@ select is(
   'an organization admin can read its organization configuration'
 );
 
-update public.organization_configurations
-set default_timezone = 'America/Denver'
-where organization_id = '50000000-0000-4000-8000-000000000001';
+select throws_ok(
+  'update public.organization_configurations
+      set default_timezone = ''America/Denver''
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '42501',
+  'permission denied for table organization_configurations',
+  'an organization-admin direct Data API update is rejected by table privileges'
+);
 
 select is(
   (select default_timezone from public.organization_configurations where organization_id = '50000000-0000-4000-8000-000000000001'),
   'America/Chicago',
-  'an organization admin cannot update organization configuration'
+  'the organization configuration remains unchanged after a denied organization-admin update'
 );
 
 select set_config('request.jwt.claims', '{"sub":"40000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
