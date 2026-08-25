@@ -2,99 +2,11 @@ import Link from "next/link";
 
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requirePlatformAdmin } from "@/lib/auth/authorization";
-import { createClient } from "@/lib/supabase/server";
 
 import { RoleAssignmentForm } from "./RoleAssignmentForm";
 
 export default async function NewPlatformRoleAssignmentPage() {
   await requirePlatformAdmin();
-
-  const supabase = await createClient();
-
-  const [
-    { data: users, error: usersError },
-    { data: organizations, error: organizationsError },
-    { data: sites, error: sitesError },
-  ] = await Promise.all([
-    supabase
-      .from("users")
-      .select(
-        `
-          id,
-          account_status,
-          person:people (
-            first_name,
-            last_name,
-            preferred_name,
-            primary_email
-          )
-        `
-      )
-      .eq("account_status", "active")
-      .order("created_at", { ascending: true }),
-
-    supabase
-      .from("organizations")
-      .select("id, name, status")
-      .eq("status", "active")
-      .order("name", { ascending: true }),
-
-    supabase
-      .from("sites")
-      .select("id, name, organization_id, status")
-      .eq("status", "active")
-      .order("name", { ascending: true }),
-  ]);
-
-  if (usersError) {
-    throw new Error(`Unable to load users: ${usersError.message}`);
-  }
-
-  if (organizationsError) {
-    throw new Error(
-      `Unable to load organizations: ${organizationsError.message}`
-    );
-  }
-
-  if (sitesError) {
-    throw new Error(`Unable to load sites: ${sitesError.message}`);
-  }
-
-  const userOptions = users.map((user) => {
-    const personValue = user.person;
-
-    const person = Array.isArray(personValue)
-      ? personValue[0]
-      : personValue;
-
-    const fullName = person
-      ? `${person.first_name} ${person.last_name}`
-      : "Unnamed user";
-
-    const displayName =
-      person?.preferred_name?.trim() || fullName;
-
-    const secondaryIdentity =
-      person?.primary_email ?? user.id;
-
-    return {
-      id: user.id,
-      label: `${displayName} — ${secondaryIdentity}`,
-    };
-  });
-
-  const organizationOptions = organizations.map(
-    (organization) => ({
-      id: organization.id,
-      label: organization.name,
-    })
-  );
-
-  const siteOptions = sites.map((site) => ({
-    id: site.id,
-    organizationId: site.organization_id,
-    label: site.name,
-  }));
 
   return (
     <AdminShell activeItem="access">
@@ -126,11 +38,7 @@ export default async function NewPlatformRoleAssignmentPage() {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <RoleAssignmentForm
-            users={userOptions}
-            organizations={organizationOptions}
-            sites={siteOptions}
-          />
+          <RoleAssignmentForm />
         </section>
       </div>
     </AdminShell>

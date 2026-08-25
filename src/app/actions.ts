@@ -13,6 +13,25 @@ type RoleAssignmentActionState = {
   error: string | null;
 };
 
+export type RoleAssignmentSearchKind =
+  | "user"
+  | "organization"
+  | "site";
+
+export type RoleAssignmentSearchOption = {
+  id: string;
+  label: string;
+};
+
+type RoleAssignmentSearchResult = {
+  options: RoleAssignmentSearchOption[];
+  error: string | null;
+};
+
+const SEARCH_RESULT_LIMIT = 20;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const ROLE_KEYS: MacRole[] = [
   "student",
   "guardian",
@@ -92,6 +111,145 @@ export async function logout() {
   await supabase.auth.signOut();
 
   redirect("/login");
+}
+
+export async function searchRoleAssignmentOptions(
+  kind: RoleAssignmentSearchKind,
+  query: string,
+  organizationId: string | null = null
+): Promise<RoleAssignmentSearchResult> {
+  await requirePlatformAdmin();
+
+  const searchTerm = query
+    .replace(/[,%()]/g, " ")
+    .trim()
+    .slice(0, 100);
+
+  if (searchTerm.length < 2) {
+    return { options: [], error: null };
+  }
+
+  const supabase = await createClient();
+
+  if (kind === "user") {
+    if (UUID_PATTERN.test(searchTerm)) {
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("id, account_status")
+        .eq("id", searchTerm)
+        .eq("account_status", "active")
+        .maybeSingle();
+
+      if (error) {
+        return { options: [], error: error.message };
+      }
+
+      return {
+        options: user
+          ? [{ id: user.id, label: user.id }]
+          : [],
+        error: null,
+      };
+    }
+
+    const pattern = `%${searchTerm}%`;
+    const { data: people, error } = await supabase
+      .from("people")
+      .select(
+        `
+          first_name,
+          last_name,
+          preferred_name,
+          primary_email,
+          user:users!inner (
+            id,
+            account_status
+          )
+        `
+      )
+      .eq("user.account_status", "active")
+      .or(
+        `first_name.ilike.${pattern},last_name.ilike.${pattern},preferred_name.ilike.${pattern},primary_email.ilike.${pattern}`
+      )
+      .order("last_name", { ascending: true })
+      .order("first_name", { ascending: true })
+      .limit(SEARCH_RESULT_LIMIT);
+
+    if (error) {
+      return { options: [], error: error.message };
+    }
+
+    return {
+      options: people.flatMap((person) => {
+        const userValue = person.user;
+        const user = Array.isArray(userValue)
+          ? userValue[0]
+          : userValue;
+
+        if (!user) {
+          return [];
+        }
+
+        const fullName =
+          `${person.first_name} ${person.last_name}`;
+        const displayName =
+          person.preferred_name?.trim() || fullName;
+
+        return [{
+          id: user.id,
+          label: `${displayName} — ${person.primary_email ?? user.id}`,
+        }];
+      }),
+      error: null,
+    };
+  }
+
+  if (kind === "organization") {
+    const pattern = `%${searchTerm}%`;
+    const { data, error } = await supabase
+      .from("organizations")
+      .select("id, name, slug")
+      .eq("status", "active")
+      .or(`name.ilike.${pattern},slug.ilike.${pattern}`)
+      .order("name", { ascending: true })
+      .limit(SEARCH_RESULT_LIMIT);
+
+    return {
+      options: error
+        ? []
+        : data.map((organization) => ({
+            id: organization.id,
+            label: `${organization.name} — ${organization.slug}`,
+          })),
+      error: error?.message ?? null,
+    };
+  }
+
+  if (!organizationId) {
+    return { options: [], error: null };
+  }
+
+  const pattern = `%${searchTerm}%`;
+  const { data, error } = await supabase
+    .from("sites")
+    .select("id, name, code")
+    .eq("organization_id", organizationId)
+    .eq("status", "active")
+    .or(`name.ilike.${pattern},code.ilike.${pattern}`)
+    .order("name", { ascending: true })
+    .limit(SEARCH_RESULT_LIMIT);
+
+  return {
+    options: error
+      ? []
+      : data.map((site) => ({
+          id: site.id,
+          label: site.code
+            ? `${site.name} — ${site.code}`
+            : site.name,
+        })),
+    error: error?.message ?? null,
+  };
 }
 
 export async function createRoleAssignment(
