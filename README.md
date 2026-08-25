@@ -2,6 +2,10 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Copy `.env.example` to `.env.local` and provide the Supabase project URL,
+publishable key, and server-only secret key. Never expose
+`SUPABASE_SECRET_KEY` through a `NEXT_PUBLIC_` environment variable.
+
 First, run the development server:
 
 ```bash

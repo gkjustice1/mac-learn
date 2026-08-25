@@ -7,9 +7,14 @@ import {
   type MacRole,
   requirePlatformAdmin,
 } from "@/lib/auth/authorization";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 type RoleAssignmentActionState = {
+  error: string | null;
+};
+
+type OrganizationConfigurationActionState = {
   error: string | null;
 };
 
@@ -103,6 +108,111 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unable to create role assignment.";
+}
+
+function getSupportedLocales(formData: FormData) {
+  const value = getRequiredString(formData, "supported_locales");
+  const locales = value
+    .split(",")
+    .map((locale) => locale.trim())
+    .filter(Boolean)
+    .map((locale) => {
+      try {
+        return Intl.getCanonicalLocales(locale)[0];
+      } catch {
+        throw new Error(
+          "Supported locales must be comma-separated valid BCP 47 locale tags, such as en-US, es-419, or zh-Hant-TW."
+        );
+      }
+    });
+
+  if (locales.length === 0) {
+    throw new Error("At least one supported locale is required.");
+  }
+
+  return [...new Set(locales)];
+}
+
+function getCanonicalLocale(formData: FormData, fieldName: string) {
+  const value = getRequiredString(formData, fieldName);
+
+  try {
+    return Intl.getCanonicalLocales(value)[0];
+  } catch {
+    throw new Error(`${fieldName} must be a valid BCP 47 locale tag.`);
+  }
+}
+
+function getCanonicalTimezone(formData: FormData) {
+  const value = getRequiredString(formData, "default_timezone");
+
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: value })
+      .resolvedOptions().timeZone;
+  } catch {
+    throw new Error(
+      "default_timezone must be a valid IANA timezone, such as America/New_York."
+    );
+  }
+}
+
+export async function saveOrganizationConfiguration(
+  _previousState: OrganizationConfigurationActionState,
+  formData: FormData
+): Promise<OrganizationConfigurationActionState> {
+  await requirePlatformAdmin();
+
+  try {
+    const organizationId = getRequiredString(formData, "organization_id");
+
+    if (!UUID_PATTERN.test(organizationId)) {
+      throw new Error("organization_id must be a valid UUID.");
+    }
+
+    const defaultTimezone = getCanonicalTimezone(formData);
+    const defaultLocale = getCanonicalLocale(formData, "default_locale");
+    const supportedLocales = getSupportedLocales(formData);
+    const academicYearStartMonth = Number(
+      getRequiredString(formData, "academic_year_start_month")
+    );
+
+    if (!Number.isInteger(academicYearStartMonth) || academicYearStartMonth < 1 || academicYearStartMonth > 12) {
+      throw new Error("Academic-year start month must be between 1 and 12.");
+    }
+
+    if (!supportedLocales.includes(defaultLocale)) {
+      throw new Error("The default locale must be included in supported locales.");
+    }
+
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
+      .from("organization_configurations")
+      .update({
+        default_timezone: defaultTimezone,
+        default_locale: defaultLocale,
+        supported_locales: supportedLocales,
+        academic_year_start_month: academicYearStartMonth,
+        attendance_required: formData.get("attendance_required") === "on",
+      })
+      .eq("organization_id", organizationId)
+      .select("organization_id")
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Unable to save organization configuration: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new Error("Organization configuration not found.");
+    }
+
+    revalidatePath("/platform/organizations");
+    revalidatePath(`/platform/organizations/${organizationId}/configuration`);
+  } catch (error) {
+    return { error: getErrorMessage(error) };
+  }
+
+  return { error: null };
 }
 
 export async function logout() {
