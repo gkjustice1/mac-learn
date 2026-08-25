@@ -227,39 +227,6 @@ export async function createRoleAssignment(
       }
     }
 
-    let expiredAssignmentQuery = supabase
-      .from("role_assignments")
-      .update({
-        status: "expired",
-      })
-      .eq("user_id", userId)
-      .eq("role_key", roleKey)
-      .eq("status", "active")
-      .not("valid_until", "is", null)
-      .lte("valid_until", new Date().toISOString());
-
-    expiredAssignmentQuery =
-      organizationId === null
-        ? expiredAssignmentQuery.is("organization_id", null)
-        : expiredAssignmentQuery.eq(
-            "organization_id",
-            organizationId
-          );
-
-    expiredAssignmentQuery =
-      siteId === null
-        ? expiredAssignmentQuery.is("site_id", null)
-        : expiredAssignmentQuery.eq("site_id", siteId);
-
-    const { error: expireError } =
-      await expiredAssignmentQuery;
-
-    if (expireError) {
-      throw new Error(
-        `Unable to reconcile expired role assignments: ${expireError.message}`
-      );
-    }
-
     const { error: insertError } = await supabase
       .from("role_assignments")
       .insert({
