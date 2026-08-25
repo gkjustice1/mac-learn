@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(10);
+select plan(12);
 
 insert into auth.users (id, email)
 values
@@ -61,6 +61,20 @@ select is(
   (select default_timezone from public.organization_configurations where organization_id = '50000000-0000-4000-8000-000000000001'),
   'America/Chicago',
   'platform-admin update persists'
+);
+
+select throws_ok(
+  'delete from public.organization_configurations
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '42501',
+  'permission denied for table organization_configurations',
+  'a platform admin cannot delete the seeded organization configuration'
+);
+
+select is(
+  (select count(*) from public.organization_configurations where organization_id = '50000000-0000-4000-8000-000000000001'),
+  1::bigint,
+  'the seeded organization configuration remains after a denied delete'
 );
 
 select throws_ok(
