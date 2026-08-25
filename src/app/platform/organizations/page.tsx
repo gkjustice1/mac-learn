@@ -66,6 +66,9 @@ export default async function PlatformOrganizationsPage() {
                     <th className="px-6 py-4 font-semibold text-slate-700">
                       Created
                     </th>
+                    <th className="px-6 py-4 font-semibold text-slate-700">
+                      Configuration
+                    </th>
                   </tr>
                 </thead>
 
@@ -100,6 +103,15 @@ export default async function PlatformOrganizationsPage() {
                             day: "numeric",
                           }
                         )}
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <Link
+                          href={`/platform/organizations/${organization.id}/configuration`}
+                          className="font-semibold text-slate-950 hover:underline"
+                        >
+                          Manage defaults
+                        </Link>
                       </td>
                     </tr>
                   ))}
