@@ -52,7 +52,7 @@ export function OrganizationConfigurationForm({
           name="default_locale"
           defaultValue={defaultLocale}
           required
-          maxLength={16}
+          maxLength={64}
           className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
         />
       </label>
