@@ -71,14 +71,13 @@ select is(
   'an organization admin can read its organization configuration'
 );
 
+update public.organization_configurations
+set default_timezone = 'America/Denver'
+where organization_id = '50000000-0000-4000-8000-000000000001';
+
 select is(
-  (with attempted_update as (
-    update public.organization_configurations
-      set default_timezone = 'America/Denver'
-    where organization_id = '50000000-0000-4000-8000-000000000001'
-    returning 1
-  ) select count(*) from attempted_update),
-  0::bigint,
+  (select default_timezone from public.organization_configurations where organization_id = '50000000-0000-4000-8000-000000000001'),
+  'America/Chicago',
   'an organization admin cannot update organization configuration'
 );
 
