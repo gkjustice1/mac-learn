@@ -480,3 +480,98 @@ export async function createRoleAssignment(
 
   redirect("/platform/access-roles?created=1");
 }
+
+type RoleAssignmentLifecycleOperation =
+  | "revoke"
+  | "expire"
+  | "renew";
+
+async function runRoleAssignmentLifecycleOperation(
+  operation: RoleAssignmentLifecycleOperation,
+  formData: FormData
+) {
+  await requirePlatformAdmin();
+
+  const assignmentId = getOptionalString(formData, "assignment_id");
+  const reason = getOptionalString(formData, "reason");
+
+  if (!assignmentId || !UUID_PATTERN.test(assignmentId)) {
+    redirect(
+      "/platform/access-roles?lifecycle_error=Invalid%20assignment."
+    );
+  }
+
+  if (!reason) {
+    redirect(
+      "/platform/access-roles?lifecycle_error=A%20reason%20is%20required."
+    );
+  }
+
+  if (reason.length > 500) {
+    redirect(
+      "/platform/access-roles?lifecycle_error=The%20reason%20must%20be%20500%20characters%20or%20fewer."
+    );
+  }
+
+  const supabase = await createClient();
+  let error: { message: string } | null = null;
+
+  if (operation === "revoke") {
+    ({ error } = await supabase.rpc("mac_revoke_role_assignment", {
+      p_assignment_id: assignmentId,
+      p_reason: reason,
+    }));
+  } else if (operation === "expire") {
+    ({ error } = await supabase.rpc("mac_expire_role_assignment", {
+      p_assignment_id: assignmentId,
+      p_reason: reason,
+    }));
+  } else {
+    const validUntilValue = getOptionalString(
+      formData,
+      "valid_until"
+    );
+
+    let validUntil: string | null = null;
+
+    if (validUntilValue) {
+      const parsedValidUntil = new Date(
+        `${validUntilValue}T23:59:59.999Z`
+      );
+
+      if (Number.isNaN(parsedValidUntil.getTime())) {
+        redirect(
+          "/platform/access-roles?lifecycle_error=Invalid%20renewal%20date."
+        );
+      }
+
+      validUntil = parsedValidUntil.toISOString();
+    }
+
+    ({ error } = await supabase.rpc("mac_renew_role_assignment", {
+      p_assignment_id: assignmentId,
+      p_new_valid_until: validUntil,
+      p_reason: reason,
+    }));
+  }
+
+  if (error) {
+    const message = encodeURIComponent(error.message.slice(0, 180));
+    redirect(`/platform/access-roles?lifecycle_error=${message}`);
+  }
+
+  revalidatePath("/platform/access-roles");
+  redirect(`/platform/access-roles?${operation}=1`);
+}
+
+export async function revokeRoleAssignment(formData: FormData) {
+  await runRoleAssignmentLifecycleOperation("revoke", formData);
+}
+
+export async function expireRoleAssignment(formData: FormData) {
+  await runRoleAssignmentLifecycleOperation("expire", formData);
+}
+
+export async function renewRoleAssignment(formData: FormData) {
+  await runRoleAssignmentLifecycleOperation("renew", formData);
+}
