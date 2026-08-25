@@ -67,8 +67,8 @@ execute function public.mac_validate_organization_configuration_timezone();
 create or replace function public.mac_seed_organization_configuration()
 returns trigger
 language plpgsql
-security invoker
-set search_path = public
+security definer
+set search_path = pg_catalog
 as '
 begin
   insert into public.organization_configurations (organization_id)
