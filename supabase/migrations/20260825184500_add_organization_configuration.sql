@@ -42,6 +42,14 @@ language plpgsql
 security invoker
 set search_path = pg_catalog
 as '
+declare
+  locale_to_validate text;
+  subtags text[];
+  last_core_index integer;
+  variant_index integer;
+  subtag_index integer;
+  extlang_count integer;
+  has_duplicate_variants boolean;
 begin
   if new.default_locale !~* ''^([a-z]{2,3}(-[a-z]{3}){0,3}|[a-z]{4}|[a-z]{5,8})(-[a-z]{4})?(-([a-z]{2}|[0-9]{3}))?(-([a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*(-[0-9a-wy-z](-[a-z0-9]{2,8})+)*(-x(-[a-z0-9]{1,8})+)?$'' then
     raise exception ''default_locale must be a valid BCP 47 locale tag: %'', new.default_locale
@@ -64,6 +72,70 @@ begin
     raise exception ''supported_locales must contain only valid BCP 47 locale tags''
       using errcode = ''22023'';
   end if;
+
+  foreach locale_to_validate in array array_prepend(new.default_locale, new.supported_locales)
+  loop
+    subtags := string_to_array(locale_to_validate, ''-'');
+    last_core_index := cardinality(subtags);
+
+    -- Extensions and private-use sequences begin with a singleton. Exclude
+    -- them so repeated extension payloads are not treated as variants.
+    if last_core_index >= 2 then
+      for subtag_index in 2..last_core_index
+      loop
+        if char_length(subtags[subtag_index]) = 1 then
+          last_core_index := subtag_index - 1;
+          exit;
+        end if;
+      end loop;
+    end if;
+
+    variant_index := 2;
+
+    -- Advance past the language, optional extlangs, script, and region. The
+    -- remaining core subtags are variants because the shape check passed.
+    if char_length(subtags[1]) between 2 and 3 then
+      extlang_count := 0;
+
+      while variant_index <= last_core_index
+        and extlang_count < 3
+        and subtags[variant_index] ~* ''^[a-z]{3}$''
+      loop
+        variant_index := variant_index + 1;
+        extlang_count := extlang_count + 1;
+      end loop;
+    end if;
+
+    if variant_index <= last_core_index
+      and subtags[variant_index] ~* ''^[a-z]{4}$''
+    then
+      variant_index := variant_index + 1;
+    end if;
+
+    if variant_index <= last_core_index
+      and subtags[variant_index] ~* ''^([a-z]{2}|[0-9]{3})$''
+    then
+      variant_index := variant_index + 1;
+    end if;
+
+    if variant_index <= last_core_index then
+      select count(*) <> count(distinct lower(variant_subtag.value))
+      into has_duplicate_variants
+      from unnest(subtags[variant_index:last_core_index]) as variant_subtag(value);
+    else
+      has_duplicate_variants := false;
+    end if;
+
+    if has_duplicate_variants then
+      if locale_to_validate = new.default_locale then
+        raise exception ''default_locale must be a valid BCP 47 locale tag: %'', new.default_locale
+          using errcode = ''22023'';
+      end if;
+
+      raise exception ''supported_locales must contain only valid BCP 47 locale tags''
+        using errcode = ''22023'';
+    end if;
+  end loop;
 
   if exists (
     select 1
