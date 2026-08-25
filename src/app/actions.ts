@@ -429,12 +429,24 @@ async function runRoleAssignmentLifecycleOperation(
 ) {
   await requirePlatformAdmin();
 
-  const assignmentId = getRequiredString(formData, "assignment_id");
-  const reason = getRequiredString(formData, "reason");
+  const assignmentId = getOptionalString(formData, "assignment_id");
+  const reason = getOptionalString(formData, "reason");
 
-  if (!UUID_PATTERN.test(assignmentId)) {
+  if (!assignmentId || !UUID_PATTERN.test(assignmentId)) {
     redirect(
       "/platform/access-roles?lifecycle_error=Invalid%20assignment."
+    );
+  }
+
+  if (!reason) {
+    redirect(
+      "/platform/access-roles?lifecycle_error=A%20reason%20is%20required."
+    );
+  }
+
+  if (reason.length > 500) {
+    redirect(
+      "/platform/access-roles?lifecycle_error=The%20reason%20must%20be%20500%20characters%20or%20fewer."
     );
   }
 
