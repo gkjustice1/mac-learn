@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(15);
+select plan(18);
 
 insert into auth.users (id, email)
 values
@@ -116,6 +116,32 @@ select lives_ok(
       set default_timezone = ''America/Los_Angeles''
     where organization_id = ''50000000-0000-4000-8000-000000000001''',
   'valid IANA timezones are accepted by the database'
+);
+
+select throws_ok(
+  'update public.organization_configurations
+      set default_locale = ''not_a_locale''
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '22023',
+  'default_locale must be a valid BCP 47 locale tag: not_a_locale',
+  'invalid default locales are rejected by the database'
+);
+
+select throws_ok(
+  'update public.organization_configurations
+      set supported_locales = array[''en-US'', ''not_a_locale'']::text[]
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '22023',
+  'supported_locales must contain only valid BCP 47 locale tags',
+  'invalid supported locales are rejected by the database'
+);
+
+select lives_ok(
+  'update public.organization_configurations
+      set default_locale = ''en-US-u-ca-islamic-civil-co-phonebk-hc-h24-kf-upper-kn-nu-arab-tz-usnyc'',
+          supported_locales = array[''en-US-u-ca-islamic-civil-co-phonebk-hc-h24-kf-upper-kn-nu-arab-tz-usnyc'']::text[]
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  'valid long BCP 47 locales are accepted by the database'
 );
 
 update public.organization_configurations
