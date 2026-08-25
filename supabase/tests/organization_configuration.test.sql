@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(22);
+select plan(27);
 
 insert into auth.users (id, email)
 values
@@ -161,6 +161,49 @@ select throws_ok(
   '22023',
   'supported_locales must contain only valid BCP 47 locale tags',
   'supported locales with mixed-case repeated extension singletons are rejected by the database'
+);
+
+select throws_ok(
+  'update public.organization_configurations
+      set default_locale = ''de-1901-1901''
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '22023',
+  'default_locale must be a valid BCP 47 locale tag: de-1901-1901',
+  'default locales with repeated variant subtags are rejected by the database'
+);
+
+select throws_ok(
+  'update public.organization_configurations
+      set supported_locales = array[''en-US'', ''de-1901-1901'']::text[]
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '22023',
+  'supported_locales must contain only valid BCP 47 locale tags',
+  'supported locales with repeated variant subtags are rejected by the database'
+);
+
+select throws_ok(
+  'update public.organization_configurations
+      set default_locale = ''sl-rozaj-ROZAJ''
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '22023',
+  'default_locale must be a valid BCP 47 locale tag: sl-rozaj-ROZAJ',
+  'mixed-case repeated variant subtags are rejected by the database'
+);
+
+select lives_ok(
+  'update public.organization_configurations
+      set default_locale = ''sl-rozaj-biske'',
+          supported_locales = array[''sl-rozaj-biske'']::text[]
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  'valid distinct variant subtags are accepted by the database'
+);
+
+select lives_ok(
+  'update public.organization_configurations
+      set default_locale = ''de-CH-1901-a-extend1-b-extend1'',
+          supported_locales = array[''de-CH-1901-a-extend1-b-extend1'']::text[]
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  'extension payloads are not misclassified as locale variants'
 );
 
 select lives_ok(
