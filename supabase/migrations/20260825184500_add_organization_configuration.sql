@@ -36,12 +36,40 @@ before update on public.organization_configurations
 for each row
 execute function public.mac_set_updated_at();
 
+create or replace function public.mac_validate_organization_configuration_timezone()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog
+as '
+begin
+  if not exists (
+    select 1
+    from pg_timezone_names
+    where name = new.default_timezone
+  ) then
+    raise exception ''default_timezone must be a valid IANA timezone: %'', new.default_timezone
+      using errcode = ''22023'';
+  end if;
+
+  return new;
+end;
+';
+
+drop trigger if exists organization_configurations_validate_timezone
+on public.organization_configurations;
+
+create trigger organization_configurations_validate_timezone
+before insert or update of default_timezone on public.organization_configurations
+for each row
+execute function public.mac_validate_organization_configuration_timezone();
+
 create or replace function public.mac_seed_organization_configuration()
 returns trigger
 language plpgsql
 security invoker
 set search_path = public
-as $$
+as '
 begin
   insert into public.organization_configurations (organization_id)
   values (new.id)
@@ -49,7 +77,7 @@ begin
 
   return new;
 end;
-$$;
+';
 
 drop trigger if exists organizations_seed_configuration
 on public.organizations;
@@ -98,4 +126,7 @@ on table public.organization_configurations
 to authenticated;
 
 revoke all on function public.mac_seed_organization_configuration()
+from public, anon, authenticated;
+
+revoke all on function public.mac_validate_organization_configuration_timezone()
 from public, anon, authenticated;
