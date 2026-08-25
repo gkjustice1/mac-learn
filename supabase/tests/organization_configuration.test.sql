@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(20);
+select plan(22);
 
 insert into auth.users (id, email)
 values
@@ -143,6 +143,24 @@ select throws_ok(
   '22023',
   'supported_locales must contain only valid BCP 47 locale tags',
   'supported locales with repeated extension singletons are rejected by the database'
+);
+
+select throws_ok(
+  'update public.organization_configurations
+      set default_locale = ''en-a-abc-A-def''
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '22023',
+  'default_locale must be a valid BCP 47 locale tag: en-a-abc-A-def',
+  'default locales with mixed-case repeated extension singletons are rejected by the database'
+);
+
+select throws_ok(
+  'update public.organization_configurations
+      set supported_locales = array[''en-US'', ''en-a-abc-A-def'']::text[]
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '22023',
+  'supported_locales must contain only valid BCP 47 locale tags',
+  'supported locales with mixed-case repeated extension singletons are rejected by the database'
 );
 
 select lives_ok(
