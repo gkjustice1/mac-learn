@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(8);
+select plan(10);
 
 insert into auth.users (id, email)
 values
@@ -51,9 +51,9 @@ set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"40000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 select lives_ok(
-  $$update public.organization_configurations
-      set default_timezone = 'America/Chicago', academic_year_start_month = 7
-    where organization_id = '50000000-0000-4000-8000-000000000001'$$,
+  'update public.organization_configurations
+      set default_timezone = ''America/Chicago'', academic_year_start_month = 7
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
   'a platform admin can update organization configuration'
 );
 
@@ -62,6 +62,26 @@ select is(
   'America/Chicago',
   'platform-admin update persists'
 );
+
+select throws_ok(
+  'update public.organization_configurations
+      set default_timezone = ''America/NewYork''
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  '22023',
+  'default_timezone must be a valid IANA timezone: America/NewYork',
+  'invalid IANA timezones are rejected by the database'
+);
+
+select lives_ok(
+  'update public.organization_configurations
+      set default_timezone = ''America/Los_Angeles''
+    where organization_id = ''50000000-0000-4000-8000-000000000001''',
+  'valid IANA timezones are accepted by the database'
+);
+
+update public.organization_configurations
+set default_timezone = 'America/Chicago'
+where organization_id = '50000000-0000-4000-8000-000000000001';
 
 select set_config('request.jwt.claims', '{"sub":"40000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 
