@@ -49,8 +49,8 @@ begin
   end if;
 
   if (
-    select count(*) <> count(distinct extension_match[2])
-    from regexp_matches(new.default_locale, ''(^|-)([0-9a-wy-z])-'', ''g'') as extension_match
+    select count(*) <> count(distinct lower(extension_match[2]))
+    from regexp_matches(new.default_locale, ''(^|-)([0-9a-wy-z])-'', ''gi'') as extension_match
   ) then
     raise exception ''default_locale must be a valid BCP 47 locale tag: %'', new.default_locale
       using errcode = ''22023'';
@@ -69,8 +69,8 @@ begin
     select 1
     from unnest(new.supported_locales) as supported_locale(locale)
     where (
-      select count(*) <> count(distinct extension_match[2])
-      from regexp_matches(supported_locale.locale, ''(^|-)([0-9a-wy-z])-'', ''g'') as extension_match
+      select count(*) <> count(distinct lower(extension_match[2]))
+      from regexp_matches(supported_locale.locale, ''(^|-)([0-9a-wy-z])-'', ''gi'') as extension_match
     )
   ) then
     raise exception ''supported_locales must contain only valid BCP 47 locale tags''
