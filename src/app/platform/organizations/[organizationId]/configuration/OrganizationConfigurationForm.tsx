@@ -67,7 +67,7 @@ export function OrganizationConfigurationForm({
           className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
         />
         <span className="font-normal text-slate-500">
-          Comma-separated locale codes. The default locale must be included.
+          Comma-separated BCP 47 locale tags, such as en-US, es-419, or zh-Hant-TW. The default locale must be included.
         </span>
       </label>
 
