@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(13);
+select plan(15);
 
 insert into auth.users (id, email)
 values
@@ -49,6 +49,22 @@ values ('40000000-0000-4000-8000-000000000002', 'organization_admin', '50000000-
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"40000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+
+select lives_ok(
+  'insert into public.organizations (id, name, slug)
+   values (
+     ''50000000-0000-4000-8000-000000000002'',
+     ''Authenticated Configuration Test Organization'',
+     ''authenticated-configuration-test-organization''
+   )',
+  'a platform admin can create an organization when configuration inserts are restricted'
+);
+
+select is(
+  (select default_timezone from public.organization_configurations where organization_id = '50000000-0000-4000-8000-000000000002'),
+  'America/New_York',
+  'an authenticated platform-admin organization creation seeds its configuration'
+);
 
 select lives_ok(
   'update public.organization_configurations
