@@ -48,6 +48,14 @@ begin
       using errcode = ''22023'';
   end if;
 
+  if (
+    select count(*) <> count(distinct extension_match[2])
+    from regexp_matches(new.default_locale, ''(^|-)([0-9a-wy-z])-'', ''g'') as extension_match
+  ) then
+    raise exception ''default_locale must be a valid BCP 47 locale tag: %'', new.default_locale
+      using errcode = ''22023'';
+  end if;
+
   if exists (
     select 1
     from unnest(new.supported_locales) as supported_locale(locale)
@@ -57,10 +65,25 @@ begin
       using errcode = ''22023'';
   end if;
 
+  if exists (
+    select 1
+    from unnest(new.supported_locales) as supported_locale(locale)
+    where (
+      select count(*) <> count(distinct extension_match[2])
+      from regexp_matches(supported_locale.locale, ''(^|-)([0-9a-wy-z])-'', ''g'') as extension_match
+    )
+  ) then
+    raise exception ''supported_locales must contain only valid BCP 47 locale tags''
+      using errcode = ''22023'';
+  end if;
+
   if not exists (
     select 1
     from pg_timezone_names
     where name = new.default_timezone
+  ) or (
+    new.default_timezone <> ''UTC''
+    and new.default_timezone !~ ''^[A-Za-z]+(/[A-Za-z0-9_+/-]+)+$''
   ) then
     raise exception ''default_timezone must be a valid IANA timezone: %'', new.default_timezone
       using errcode = ''22023'';
