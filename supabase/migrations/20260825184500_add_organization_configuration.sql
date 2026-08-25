@@ -36,13 +36,27 @@ before update on public.organization_configurations
 for each row
 execute function public.mac_set_updated_at();
 
-create or replace function public.mac_validate_organization_configuration_timezone()
+create or replace function public.mac_validate_organization_configuration()
 returns trigger
 language plpgsql
 security invoker
 set search_path = pg_catalog
 as '
 begin
+  if new.default_locale !~* ''^([a-z]{2,3}(-[a-z]{3}){0,3}|[a-z]{4}|[a-z]{5,8})(-[a-z]{4})?(-([a-z]{2}|[0-9]{3}))?(-([a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*(-[0-9a-wy-z](-[a-z0-9]{2,8})+)*(-x(-[a-z0-9]{1,8})+)?$'' then
+    raise exception ''default_locale must be a valid BCP 47 locale tag: %'', new.default_locale
+      using errcode = ''22023'';
+  end if;
+
+  if exists (
+    select 1
+    from unnest(new.supported_locales) as supported_locale(locale)
+    where locale !~* ''^([a-z]{2,3}(-[a-z]{3}){0,3}|[a-z]{4}|[a-z]{5,8})(-[a-z]{4})?(-([a-z]{2}|[0-9]{3}))?(-([a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*(-[0-9a-wy-z](-[a-z0-9]{2,8})+)*(-x(-[a-z0-9]{1,8})+)?$''
+  ) then
+    raise exception ''supported_locales must contain only valid BCP 47 locale tags''
+      using errcode = ''22023'';
+  end if;
+
   if not exists (
     select 1
     from pg_timezone_names
@@ -60,9 +74,10 @@ drop trigger if exists organization_configurations_validate_timezone
 on public.organization_configurations;
 
 create trigger organization_configurations_validate_timezone
-before insert or update of default_timezone on public.organization_configurations
+before insert or update of default_timezone, default_locale, supported_locales
+on public.organization_configurations
 for each row
-execute function public.mac_validate_organization_configuration_timezone();
+execute function public.mac_validate_organization_configuration();
 
 create or replace function public.mac_seed_organization_configuration()
 returns trigger
@@ -143,5 +158,5 @@ from authenticated;
 revoke all on function public.mac_seed_organization_configuration()
 from public, anon, authenticated;
 
-revoke all on function public.mac_validate_organization_configuration_timezone()
+revoke all on function public.mac_validate_organization_configuration()
 from public, anon, authenticated;
