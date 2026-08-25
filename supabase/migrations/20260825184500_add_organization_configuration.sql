@@ -136,6 +136,10 @@ grant select, update
 on table public.organization_configurations
 to authenticated;
 
+revoke insert, delete
+on table public.organization_configurations
+from authenticated;
+
 revoke all on function public.mac_seed_organization_configuration()
 from public, anon, authenticated;
 
