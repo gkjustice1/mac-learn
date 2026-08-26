@@ -45,7 +45,7 @@ where student.primary_site_id = site.id
 with student_relationship_organizations as (
   select
     relationship.student_id,
-    min(relationship.organization_id) as organization_id
+    (array_agg(relationship.organization_id))[1] as organization_id
   from public.guardian_student_relationships relationship
   group by relationship.student_id
   having count(distinct relationship.organization_id) = 1
