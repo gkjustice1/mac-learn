@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(18);
+select plan(21);
 
 insert into auth.users (id, email)
 values
@@ -256,6 +256,18 @@ select throws_ok(
   'profiles reject a site from another tenant'
 );
 
+select throws_ok(
+  $$
+    update public.profiles
+    set organization_id = null,
+        site_id = '31000000-0000-4000-8000-000000000001'
+    where id = '61000000-0000-4000-8000-000000000001'
+  $$,
+  '23514',
+  null,
+  'profiles cannot retain a site without an organization context'
+);
+
 insert into public.students (
   id, parent_id, first_name, last_name, grade_level, organization_id
 ) values (
@@ -276,6 +288,54 @@ select throws_ok(
   '23503',
   null,
   'students reject a primary site from another tenant'
+);
+
+select throws_ok(
+  $$
+    update public.students
+    set organization_id = null,
+        primary_site_id = '31000000-0000-4000-8000-000000000001'
+    where id = '71000000-0000-4000-8000-000000000001'
+  $$,
+  '23514',
+  null,
+  'students cannot retain a site without an organization context'
+);
+
+insert into auth.users (id, email)
+values (
+  '11000000-0000-4000-8000-000000000005',
+  'tenant-tutor@example.test'
+);
+
+insert into public.profiles (
+  id, user_id, full_name, email, organization_id
+) values (
+  '61000000-0000-4000-8000-000000000002',
+  '11000000-0000-4000-8000-000000000005',
+  'Tenant Tutor',
+  'tenant-tutor@example.test',
+  '21000000-0000-4000-8000-000000000001'
+);
+
+insert into public.tutor_profiles (
+  id, user_id, organization_id
+) values (
+  '72000000-0000-4000-8000-000000000001',
+  '61000000-0000-4000-8000-000000000002',
+  '21000000-0000-4000-8000-000000000001'
+);
+
+select throws_ok(
+  $$
+    update public.tutor_profiles
+    set organization_id = null,
+        site_id = '31000000-0000-4000-8000-000000000001'
+    where id = '72000000-0000-4000-8000-000000000001'
+  $$,
+  '23514',
+  null,
+  'tutors cannot retain a site without an organization context'
 );
 
 insert into public.guardians (

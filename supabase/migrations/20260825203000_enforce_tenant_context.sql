@@ -23,6 +23,32 @@ alter table public.staff
   unique (organization_id, id);
 
 
+-- Earlier reconciliation added the organization and site columns
+-- independently and left both nullable. Preserve those valid legacy
+-- rows by deriving a missing organization from the referenced site
+-- before the new consistency checks are validated. Existing non-null
+-- conflicts are not rewritten; constraint validation will stop the
+-- migration so they can be investigated rather than reassigned.
+
+update public.profiles profile
+set organization_id = site.organization_id
+from public.sites site
+where profile.site_id = site.id
+  and profile.organization_id is null;
+
+update public.students student
+set organization_id = site.organization_id
+from public.sites site
+where student.primary_site_id = site.id
+  and student.organization_id is null;
+
+update public.tutor_profiles tutor
+set organization_id = site.organization_id
+from public.sites site
+where tutor.site_id = site.id
+  and tutor.organization_id is null;
+
+
 -- ------------------------------------------------------------
 -- Organization/site consistency
 -- ------------------------------------------------------------
