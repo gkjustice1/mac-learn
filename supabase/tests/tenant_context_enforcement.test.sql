@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(21);
+select plan(22);
 
 insert into auth.users (id, email)
 values
@@ -326,6 +326,14 @@ insert into public.tutor_profiles (
   '21000000-0000-4000-8000-000000000001'
 );
 
+insert into public.staff (
+  id, organization_id, person_id
+) values (
+  '52000000-0000-4000-8000-000000000001',
+  '21000000-0000-4000-8000-000000000001',
+  '51000000-0000-4000-8000-000000000001'
+);
+
 select throws_ok(
   $$
     update public.tutor_profiles
@@ -336,6 +344,19 @@ select throws_ok(
   '23514',
   null,
   'tutors cannot retain a site without an organization context'
+);
+
+select throws_ok(
+  $$
+    update public.tutor_profiles
+    set organization_id = null,
+        site_id = null,
+        staff_id = '52000000-0000-4000-8000-000000000001'
+    where id = '72000000-0000-4000-8000-000000000001'
+  $$,
+  '23514',
+  null,
+  'tutors cannot retain linked staff without an organization context'
 );
 
 insert into public.guardians (

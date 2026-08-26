@@ -48,6 +48,12 @@ from public.sites site
 where tutor.site_id = site.id
   and tutor.organization_id is null;
 
+update public.tutor_profiles tutor
+set organization_id = staff.organization_id
+from public.staff staff
+where tutor.staff_id = staff.id
+  and tutor.organization_id is null;
+
 
 -- ------------------------------------------------------------
 -- Organization/site consistency
