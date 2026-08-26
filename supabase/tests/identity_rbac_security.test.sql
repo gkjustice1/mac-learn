@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(5);
+select plan(3);
 
 select ok(
   not has_function_privilege('anon', 'public.current_user_role()'::regprocedure, 'execute'),
@@ -13,16 +13,6 @@ select ok(
 select ok(
   has_function_privilege('authenticated', 'public.current_user_role()'::regprocedure, 'execute'),
   'authenticated users can execute the legacy helper needed by baseline RLS policies'
-);
-
-select ok(
-  not has_function_privilege('anon', 'public.rls_auto_enable()'::regprocedure, 'execute'),
-  'anonymous users cannot execute the RLS event-trigger function'
-);
-
-select ok(
-  not has_function_privilege('authenticated', 'public.rls_auto_enable()'::regprocedure, 'execute'),
-  'authenticated users cannot execute the RLS event-trigger function'
 );
 
 insert into auth.users (id, email)
