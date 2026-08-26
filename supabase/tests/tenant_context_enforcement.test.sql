@@ -210,6 +210,8 @@ select throws_ok(
       'site_admin'
     )
   $$,
+  '23503',
+  null,
   'role assignments reject a site from another tenant'
 );
 
@@ -228,6 +230,8 @@ select throws_ok(
       '31000000-0000-4000-8000-000000000003'
     )
   $$,
+  '23503',
+  null,
   'staff reject a primary site from another tenant'
 );
 
@@ -247,6 +251,8 @@ select throws_ok(
     set site_id = '31000000-0000-4000-8000-000000000003'
     where id = '61000000-0000-4000-8000-000000000001'
   $$,
+  '23503',
+  null,
   'profiles reject a site from another tenant'
 );
 
@@ -267,6 +273,8 @@ select throws_ok(
     set primary_site_id = '31000000-0000-4000-8000-000000000003'
     where id = '71000000-0000-4000-8000-000000000001'
   $$,
+  '23503',
+  null,
   'students reject a primary site from another tenant'
 );
 
@@ -289,6 +297,8 @@ select throws_ok(
       'guardian'
     )
   $$,
+  '23503',
+  null,
   'guardian relationships reject a guardian from another tenant'
 );
 
