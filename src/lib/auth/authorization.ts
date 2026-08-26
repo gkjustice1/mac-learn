@@ -18,6 +18,11 @@ export type AuthorizationScope = {
   siteId?: string | null;
 };
 
+export type TenantContext = {
+  organizationId: string;
+  siteId: string | null;
+};
+
 export async function requireAuthenticatedUser() {
   const supabase = await createClient();
 
@@ -106,6 +111,59 @@ export async function isSiteAdmin(
   }
 
   return data === true;
+}
+
+export async function canAccessOrganization(organizationId: string) {
+  const { supabase } = await requireAuthenticatedUser();
+
+  const { data, error } = await supabase.rpc(
+    "mac_can_access_organization",
+    {
+      requested_organization_id: organizationId,
+    }
+  );
+
+  if (error) {
+    return false;
+  }
+
+  return data === true;
+}
+
+export async function canAccessSite(
+  organizationId: string,
+  siteId: string
+) {
+  const { supabase } = await requireAuthenticatedUser();
+
+  const { data, error } = await supabase.rpc("mac_can_access_site", {
+    requested_organization_id: organizationId,
+    requested_site_id: siteId,
+  });
+
+  if (error) {
+    return false;
+  }
+
+  return data === true;
+}
+
+export async function requireTenantContext(
+  organizationId: string,
+  siteId: string | null = null
+): Promise<TenantContext> {
+  const allowed = siteId
+    ? await canAccessSite(organizationId, siteId)
+    : await canAccessOrganization(organizationId);
+
+  if (!allowed) {
+    redirect("/unauthorized");
+  }
+
+  return {
+    organizationId,
+    siteId,
+  };
 }
 
 export async function requireEnterpriseUser() {
