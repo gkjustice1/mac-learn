@@ -24,14 +24,19 @@ from public, anon;
 grant execute on function public.current_user_role()
 to authenticated;
 
--- This function is only invoked by the ensure_rls database event
--- trigger. It must never be callable through the Data API by anon
--- or authenticated users.
-revoke all on function public.rls_auto_enable()
-from public, anon, authenticated;
+-- Some existing environments include this event-trigger helper while
+-- a clean local database does not. If present, it must never be callable
+-- through the Data API by anon or authenticated users.
+do $$
+begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    revoke all on function public.rls_auto_enable() from public, anon, authenticated;
+
+    comment on function public.rls_auto_enable() is
+      'Database event-trigger function that enables RLS for newly created public tables; not executable by API roles.';
+  end if;
+end;
+$$;
 
 comment on function public.current_user_role() is
   'Legacy profile-role helper retained for baseline RLS policies; executable by authenticated users only.';
-
-comment on function public.rls_auto_enable() is
-  'Database event-trigger function that enables RLS for newly created public tables; not executable by API roles.';
