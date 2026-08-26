@@ -42,6 +42,20 @@ from public.sites site
 where student.primary_site_id = site.id
   and student.organization_id is null;
 
+with student_relationship_organizations as (
+  select
+    relationship.student_id,
+    min(relationship.organization_id) as organization_id
+  from public.guardian_student_relationships relationship
+  group by relationship.student_id
+  having count(distinct relationship.organization_id) = 1
+)
+update public.students student
+set organization_id = relationship.organization_id
+from student_relationship_organizations relationship
+where student.id = relationship.student_id
+  and student.organization_id is null;
+
 update public.tutor_profiles tutor
 set organization_id = site.organization_id
 from public.sites site

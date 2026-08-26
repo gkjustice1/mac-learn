@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(22);
+select plan(23);
 
 insert into auth.users (id, email)
 values
@@ -365,6 +365,47 @@ insert into public.guardians (
   '81000000-0000-4000-8000-000000000001',
   '21000000-0000-4000-8000-000000000002',
   '51000000-0000-4000-8000-000000000002'
+);
+
+insert into public.people (id, first_name, last_name)
+values (
+  '51000000-0000-4000-8000-000000000003',
+  'Tenant',
+  'Relationship Guardian'
+);
+
+insert into public.guardians (
+  id, organization_id, person_id
+) values (
+  '81000000-0000-4000-8000-000000000002',
+  '21000000-0000-4000-8000-000000000001',
+  '51000000-0000-4000-8000-000000000003'
+);
+
+insert into public.students (
+  id, parent_id, first_name, last_name, grade_level
+) values (
+  '71000000-0000-4000-8000-000000000002',
+  '61000000-0000-4000-8000-000000000001',
+  'Legacy',
+  'Student',
+  '5'
+);
+
+select throws_ok(
+  $$
+    insert into public.guardian_student_relationships (
+      organization_id, guardian_id, student_id, relationship_type
+    ) values (
+      '21000000-0000-4000-8000-000000000001',
+      '81000000-0000-4000-8000-000000000002',
+      '71000000-0000-4000-8000-000000000002',
+      'guardian'
+    )
+  $$,
+  '23503',
+  null,
+  'guardian relationships cannot leave a linked student without tenant context'
 );
 
 select throws_ok(
