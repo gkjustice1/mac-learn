@@ -40,5 +40,5 @@ const { error } = await supabase.auth.updateUser({
     redirect("/update-password?error=password_update_failed");
   }
 
-  redirect("/");
+  redirect("/dashboard");
 }
