@@ -69,6 +69,22 @@ export async function hasRole(
   return data === true;
 }
 
+export async function hasAnyRole(roles: readonly MacRole[]) {
+  const { supabase } = await requireAuthenticatedUser();
+
+  const { data, error } = await supabase.rpc("mac_current_user_roles");
+
+  if (error) {
+    return false;
+  }
+
+  const assignments = (data ?? []) as { role_key: string }[];
+
+  return assignments.some((assignment) =>
+    roles.includes(assignment.role_key as MacRole)
+  );
+}
+
 export async function isPlatformAdmin() {
   const { supabase } = await requireAuthenticatedUser();
 
@@ -179,6 +195,14 @@ export async function requireRole(
   scope: AuthorizationScope = {}
 ) {
   const allowed = await hasRole(role, scope);
+
+  if (!allowed) {
+    redirect("/unauthorized");
+  }
+}
+
+export async function requireAnyRole(roles: readonly MacRole[]) {
+  const allowed = await hasAnyRole(roles);
 
   if (!allowed) {
     redirect("/unauthorized");

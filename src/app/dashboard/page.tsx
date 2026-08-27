@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getAuthorizationContext } from "@/lib/auth/context";
+import { resolveWorkspacePath } from "@/lib/auth/workspace";
 
 export default async function DashboardPage() {
   const context = await getAuthorizationContext();
@@ -10,28 +11,10 @@ export default async function DashboardPage() {
     redirect("/unauthorized");
   }
 
-  switch (primaryAssignment.role) {
-    case "platform_admin":
-      redirect("/platform");
+  const workspacePath = resolveWorkspacePath(primaryAssignment);
 
-    case "organization_admin":
-      if (primaryAssignment.organizationId) {
-        redirect(
-          `/organizations/${primaryAssignment.organizationId}`
-        );
-      }
-      break;
-
-    case "site_admin":
-      if (
-        primaryAssignment.organizationId &&
-        primaryAssignment.siteId
-      ) {
-        redirect(
-          `/organizations/${primaryAssignment.organizationId}/sites/${primaryAssignment.siteId}`
-        );
-      }
-      break;
+  if (workspacePath) {
+    redirect(workspacePath);
   }
 
   return (
