@@ -15,14 +15,14 @@ language sql
 stable
 security definer
 set search_path = public
-as $
+as $mac$
   select not exists (
     select 1
     from public.users enterprise_user
     where enterprise_user.id = auth.uid()
       and enterprise_user.account_status <> 'active'
   );
-$;
+$mac$;
 
 revoke all on function public.mac_can_use_legacy_admin_access() from public;
 grant execute on function public.mac_can_use_legacy_admin_access() to authenticated;
