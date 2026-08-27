@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(12);
+select plan(13);
 insert into auth.users (id,email) values
 ('14000000-0000-4000-8000-000000000001','family-access@example.test'),
 ('14000000-0000-4000-8000-000000000002','legacy-parent@example.test');
@@ -38,6 +38,12 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 select is((select count(*) from public.students),3::bigint,'a legacy administrator retains student access during enterprise migration');
+reset role;
+insert into public.people (id,first_name,last_name) values ('34000000-0000-4000-8000-000000000005','Disabled','Admin');
+insert into public.users (id,person_id,account_status) values ('14000000-0000-4000-8000-000000000002','34000000-0000-4000-8000-000000000005','disabled');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select is((select count(*) from public.students),0::bigint,'a disabled migrated legacy administrator cannot manage students');
 reset role;
 update public.users set account_status='disabled' where id='14000000-0000-4000-8000-000000000001';
 set local role authenticated;
