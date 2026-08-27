@@ -9,7 +9,9 @@ drop policy if exists "Admins manage students" on public.students;
 drop policy if exists "Parents view own students" on public.students;
 drop policy if exists "Parents create own students" on public.students;
 
-create or replace function public.mac_has_guardian_record(
+drop function if exists public.mac_has_guardian_record(uuid);
+
+create or replace function public.mac_can_use_legacy_family_link(
   requested_organization_id uuid
 )
 returns boolean
@@ -18,18 +20,24 @@ stable
 security definer
 set search_path = public
 as $$
-  select exists (
+  select not exists (
     select 1
     from public.users enterprise_user
-    join public.guardians guardian
-      on guardian.person_id = enterprise_user.person_id
-     and guardian.organization_id = requested_organization_id
     where enterprise_user.id = auth.uid()
+      and (
+        enterprise_user.account_status <> 'active'
+        or exists (
+          select 1
+          from public.guardians guardian
+          where guardian.person_id = enterprise_user.person_id
+            and guardian.organization_id = requested_organization_id
+        )
+      )
   );
 $$;
 
-revoke all on function public.mac_has_guardian_record(uuid) from public;
-grant execute on function public.mac_has_guardian_record(uuid) to authenticated;
+revoke all on function public.mac_can_use_legacy_family_link(uuid) from public;
+grant execute on function public.mac_can_use_legacy_family_link(uuid) to authenticated;
 
 create policy "Organization admins manage students"
 on public.students
@@ -99,7 +107,7 @@ using (
       and legacy_parent.user_id = (select auth.uid())
       -- Once a family member has an enterprise guardian record for this
       -- organization, its active relationship rules are authoritative.
-      and not public.mac_has_guardian_record(students.organization_id)
+      and public.mac_can_use_legacy_family_link(students.organization_id)
   )
   or exists (
     select 1
