@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(9);
+select plan(10);
 
 insert into auth.users (id, email)
 values
@@ -84,6 +84,22 @@ where id = '74000000-0000-4000-8000-000000000001';
 
 select is((select grade_level from public.students where id = '74000000-0000-4000-8000-000000000001'),
   '5', 'a guardian cannot change a related student through the Data API');
+
+reset role;
+
+update public.users
+set account_status = 'disabled'
+where id = '14000000-0000-4000-8000-000000000001';
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"14000000-0000-4000-8000-000000000001","role":"authenticated"}',
+  true
+);
+
+select is((select count(*) from public.students), 0::bigint,
+  'a disabled enterprise guardian cannot regain legacy student access');
 
 reset role;
 select * from finish();
