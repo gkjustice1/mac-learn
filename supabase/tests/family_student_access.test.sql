@@ -40,7 +40,7 @@ select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-00000000
 select is((select count(*) from public.students),3::bigint,'a legacy administrator retains student access during enterprise migration');
 reset role;
 insert into public.people (id,first_name,last_name) values ('34000000-0000-4000-8000-000000000005','Disabled','Admin');
-insert into public.users (id,person_id,account_status) values ('14000000-0000-4000-8000-000000000002','34000000-0000-4000-000000000005','active');
+insert into public.users (id,person_id,account_status) values ('14000000-0000-4000-8000-000000000002','34000000-0000-4000-8000-000000000005','active');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 select is((select count(*) from public.students),0::bigint,'an active migrated legacy administrator cannot bypass enterprise authorization');
