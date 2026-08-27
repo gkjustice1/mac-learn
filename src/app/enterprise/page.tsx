@@ -1,7 +1,8 @@
-import { requireEnterpriseUser } from "@/lib/auth/authorization";
+import { requireAnyRole } from "@/lib/auth/authorization";
+import { ENTERPRISE_WORKSPACE_ROLES } from "@/lib/auth/workspace";
 
 export default async function EnterprisePage() {
-  await requireEnterpriseUser();
+  await requireAnyRole(ENTERPRISE_WORKSPACE_ROLES);
 
   return (
     <main
