@@ -9,12 +9,36 @@ drop policy if exists "Admins manage students" on public.students;
 drop policy if exists "Parents view own students" on public.students;
 drop policy if exists "Parents create own students" on public.students;
 
+create or replace function public.mac_can_use_legacy_admin_access()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $
+  select not exists (
+    select 1
+    from public.users enterprise_user
+    where enterprise_user.id = auth.uid()
+      and enterprise_user.account_status <> 'active'
+  );
+$;
+
+revoke all on function public.mac_can_use_legacy_admin_access() from public;
+grant execute on function public.mac_can_use_legacy_admin_access() to authenticated;
+
 create policy "Legacy admins manage students during transition"
 on public.students
 for all
 to authenticated
-using (public.current_user_role() = 'admin')
-with check (public.current_user_role() = 'admin');
+using (
+  public.current_user_role() = 'admin'
+  and public.mac_can_use_legacy_admin_access()
+)
+with check (
+  public.current_user_role() = 'admin'
+  and public.mac_can_use_legacy_admin_access()
+);
 
 drop function if exists public.mac_has_guardian_record(uuid);
 
