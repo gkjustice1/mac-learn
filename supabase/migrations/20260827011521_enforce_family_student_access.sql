@@ -79,6 +79,25 @@ to authenticated
 using (organization_id is not null and public.mac_is_organization_admin(organization_id))
 with check (organization_id is not null and public.mac_is_organization_admin(organization_id));
 
+create policy "Platform admins view unscoped students during transition"
+on public.students
+for select
+to authenticated
+using (
+  organization_id is null
+  and public.mac_is_platform_admin()
+);
+
+create policy "Platform admins scope unscoped students during transition"
+on public.students
+for update
+to authenticated
+using (
+  organization_id is null
+  and public.mac_is_platform_admin()
+)
+with check (public.mac_is_platform_admin());
+
 create policy "Authenticated guardians view their own guardian records"
 on public.guardians for select to authenticated
 using (public.mac_is_organization_admin(organization_id) or exists (
