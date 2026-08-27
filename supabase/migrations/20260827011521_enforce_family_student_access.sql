@@ -75,6 +75,16 @@ using (
     from public.profiles legacy_parent
     where legacy_parent.id = students.parent_id
       and legacy_parent.user_id = (select auth.uid())
+      -- Once a family member has an enterprise guardian record for this
+      -- organization, its active relationship rules are authoritative.
+      and not exists (
+        select 1
+        from public.users enterprise_user
+        join public.guardians migrated_guardian
+          on migrated_guardian.person_id = enterprise_user.person_id
+         and migrated_guardian.organization_id = students.organization_id
+        where enterprise_user.id = (select auth.uid())
+      )
   )
   or exists (
     select 1
