@@ -25,7 +25,7 @@ values ('14000000-0000-4000-8000-000000000001', '34000000-0000-4000-8000-0000000
 
 insert into public.profiles (id, user_id, full_name, email, organization_id)
 values
-  ('64000000-0000-4000-8000-000000000001', '14000000-0000-4000-8000-000000000002', 'Legacy Parent', 'legacy-parent@example.test', '24000000-0000-4000-8000-000000000001');
+  ('64000000-0000-4000-8000-000000000001', '14000000-0000-4000-8000-000000000001', 'Legacy Parent', 'family-access@example.test', '24000000-0000-4000-8000-000000000001');
 
 insert into public.guardians (id, organization_id, person_id, status)
 values ('44000000-0000-4000-8000-000000000001', '24000000-0000-4000-8000-000000000001', '34000000-0000-4000-8000-000000000001', 'active');
@@ -68,7 +68,7 @@ select is((select first_name from public.students where id = '74000000-0000-4000
 select is((select count(*) from public.students where id = '74000000-0000-4000-8000-000000000002'), 0::bigint,
   'an unrelated student is hidden from the guardian');
 select is((select count(*) from public.students where id = '74000000-0000-4000-8000-000000000003'), 0::bigint,
-  'a relationship without educational access does not expose the student');
+  'a relationship without educational access overrides the legacy parent link');
 
 select throws_ok(
   $$insert into public.guardian_student_relationships (organization_id, guardian_id, student_id, relationship_type)
