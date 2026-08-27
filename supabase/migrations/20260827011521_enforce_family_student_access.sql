@@ -20,7 +20,6 @@ as $mac$
     select 1
     from public.users enterprise_user
     where enterprise_user.id = auth.uid()
-      and enterprise_user.account_status <> 'active'
   );
 $mac$;
 
