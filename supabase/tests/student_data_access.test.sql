@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(11);
+select plan(12);
 
 insert into auth.users (id, email) values
   ('17000000-0000-4000-8000-000000000001', 'assigned-student@example.test'),
@@ -52,6 +52,13 @@ select is((select count(*) from public.educator_instructional_records), 2::bigin
 select is((select count(*) from public.classroom_student_enrollments where student_id = '77000000-0000-4000-8000-000000000002'), 0::bigint, 'another student enrollment is hidden');
 select is((select count(*) from public.educator_instructional_records where student_id = '77000000-0000-4000-8000-000000000002'), 0::bigint, 'another student instructional record is hidden');
 select throws_ok($$insert into public.educator_instructional_records (organization_id, classroom_id, student_id, educator_user_id, record_type, content) values ('27000000-0000-4000-8000-000000000001', '87000000-0000-4000-8000-000000000001', '77000000-0000-4000-8000-000000000001', '17000000-0000-4000-8000-000000000001', 'instruction', 'Student write attempt')$$, '42501', 'new row violates row-level security policy for table "educator_instructional_records"', 'a student cannot create instructional records');
+reset role;
+update public.classroom_student_enrollments
+set status = 'withdrawn'
+where student_id = '77000000-0000-4000-8000-000000000003';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"17000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select is((select count(*) from public.educator_instructional_records), 1::bigint, 'a withdrawn enrollment hides its instructional records');
 reset role;
 update public.users set account_status = 'disabled' where id = '17000000-0000-4000-8000-000000000001';
 set local role authenticated;
