@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(20);
+select plan(22);
 
 insert into auth.users (id,email) values
 ('15000000-0000-4000-8000-000000000001','assigned-tutor@example.test'),
@@ -64,6 +64,12 @@ select throws_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4
 select lives_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001',null,22)$$,'an authorized administrator can set a nullable protected field');
 select lives_ok($$select public.mac_admin_clear_tutor_profile_fields('55000000-0000-4000-8000-000000000001',true)$$,'an authorized administrator can explicitly clear a nullable protected field');
 select is((select hourly_rate from public.tutor_profiles where id='55000000-0000-4000-8000-000000000001'),null::numeric,'the clear RPC removes the requested nullable field');
+reset role;
+insert into public.users (id,account_status) values ('15000000-0000-4000-8000-000000000003','active');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select is((select count(*) from public.tutor_profiles),0::bigint,'a migrated legacy admin cannot read tutor profiles without enterprise authorization');
+select throws_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001','approved')$$,'42501','not authorized to manage this tutor profile','a migrated legacy admin cannot use tutor administration RPCs');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000004","role":"authenticated"}',true);
