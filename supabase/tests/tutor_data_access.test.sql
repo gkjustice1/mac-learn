@@ -1,14 +1,17 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(19);
+select plan(20);
 
 insert into auth.users (id,email) values
 ('15000000-0000-4000-8000-000000000001','assigned-tutor@example.test'),
 ('15000000-0000-4000-8000-000000000002','other-tutor@example.test'),
-('15000000-0000-4000-8000-000000000004','organization-tutor-admin@example.test');
+('15000000-0000-4000-8000-000000000004','organization-tutor-admin@example.test'),
+('15000000-0000-4000-8000-000000000005','foreign-replacement@example.test');
 insert into public.organizations (id,name,slug) values
 ('25000000-0000-4000-8000-000000000001','Tutor Access Test Organization','tutor-access-test');
+insert into public.organizations (id,name,slug) values
+('25000000-0000-4000-8000-000000000002','Foreign Tutor Access Organization','foreign-tutor-access-test');
 insert into public.sites (id,organization_id,name,code) values
 ('35000000-0000-4000-8000-000000000001','25000000-0000-4000-8000-000000000001','Tutor Access Site','TUTOR');
 insert into public.users (id,account_status) values
@@ -52,10 +55,12 @@ select is((select grade_level from public.students where id='75000000-0000-4000-
 reset role;
 insert into auth.users (id,email) values ('15000000-0000-4000-8000-000000000003','legacy-tutor-admin@example.test');
 insert into public.profiles (id,user_id,full_name,email,organization_id,role) values ('65000000-0000-4000-8000-000000000003','15000000-0000-4000-8000-000000000003','Legacy Tutor Admin','legacy-tutor-admin@example.test','25000000-0000-4000-8000-000000000001','admin');
+insert into public.profiles (id,user_id,full_name,email,organization_id) values ('65000000-0000-4000-8000-000000000005','15000000-0000-4000-8000-000000000005','Foreign Replacement','foreign-replacement@example.test','25000000-0000-4000-8000-000000000002');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 select lives_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001','approved')$$,'an authorized administrator can approve a tutor through the protected-field RPC');
 select is((select approval_status from public.tutor_profiles where id='55000000-0000-4000-8000-000000000001'),'approved'::approval_status,'the administrative RPC updates protected tutor fields');
+select throws_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001',null,null,null,null,null,null,'65000000-0000-4000-8000-000000000005')$$,'42501','replacement profile is outside the authorized organization','an administrator cannot replace a tutor profile with a foreign-tenant profile');
 select lives_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001',null,22)$$,'an authorized administrator can set a nullable protected field');
 select lives_ok($$select public.mac_admin_clear_tutor_profile_fields('55000000-0000-4000-8000-000000000001',true)$$,'an authorized administrator can explicitly clear a nullable protected field');
 select is((select hourly_rate from public.tutor_profiles where id='55000000-0000-4000-8000-000000000001'),null::numeric,'the clear RPC removes the requested nullable field');
