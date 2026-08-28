@@ -55,7 +55,23 @@ using (status = 'active' and exists (
 
 create policy "Students view their own instructional records"
 on public.educator_instructional_records for select to authenticated
-using (student_id in (select public.mac_current_student_ids()));
+using (
+  student_id in (select public.mac_current_student_ids())
+  and exists (
+    select 1
+    from public.classroom_student_enrollments enrollment
+    join public.classrooms classroom
+      on classroom.id = enrollment.classroom_id
+      and classroom.organization_id = enrollment.organization_id
+    where enrollment.student_id = educator_instructional_records.student_id
+      and enrollment.classroom_id = educator_instructional_records.classroom_id
+      and enrollment.organization_id = educator_instructional_records.organization_id
+      and enrollment.status = 'active'
+      and enrollment.enrolled_from <= current_date
+      and (enrollment.enrolled_until is null or enrollment.enrolled_until >= current_date)
+      and classroom.status = 'active'
+  )
+);
 
 comment on policy "Students view their own enterprise record" on public.students is
   'An active student identity can view only the student record linked by public.users.person_id.';
