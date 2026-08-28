@@ -1,13 +1,15 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(12);
+select plan(15);
 
 insert into auth.users (id,email) values
 ('15000000-0000-4000-8000-000000000001','assigned-tutor@example.test'),
 ('15000000-0000-4000-8000-000000000002','other-tutor@example.test');
 insert into public.organizations (id,name,slug) values
 ('25000000-0000-4000-8000-000000000001','Tutor Access Test Organization','tutor-access-test');
+insert into public.sites (id,organization_id,name,code) values
+('35000000-0000-4000-8000-000000000001','25000000-0000-4000-8000-000000000001','Tutor Access Site','TUTOR');
 insert into public.users (id,account_status) values
 ('15000000-0000-4000-8000-000000000001','active'),
 ('15000000-0000-4000-8000-000000000002','active');
@@ -17,6 +19,7 @@ insert into public.profiles (id,user_id,full_name,email,organization_id) values
 insert into public.tutor_profiles (id,user_id,organization_id) values
 ('55000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001','25000000-0000-4000-8000-000000000001'),
 ('55000000-0000-4000-8000-000000000002','65000000-0000-4000-8000-000000000002','25000000-0000-4000-8000-000000000001');
+update public.tutor_profiles set site_id='35000000-0000-4000-8000-000000000001' where id='55000000-0000-4000-8000-000000000001';
 insert into public.role_assignments (organization_id,user_id,role_key,status) values
 ('25000000-0000-4000-8000-000000000001','15000000-0000-4000-8000-000000000001','tutor','active'),
 ('25000000-0000-4000-8000-000000000001','15000000-0000-4000-8000-000000000002','tutor','active');
@@ -30,6 +33,7 @@ insert into public.sessions (id,student_id,parent_id,tutor_id,start_time,end_tim
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select is((select count(*) from public.tutor_profiles),1::bigint,'a tutor can view only their own tutor profile');
+select is(public.mac_current_tutor_id(),'55000000-0000-4000-8000-000000000001','an organization-scoped tutor role works for a site-linked tutor profile');
 select lives_ok($$update public.tutor_profiles set bio='Updated biography' where id='55000000-0000-4000-8000-000000000001'$$,'a tutor can update their own public profile fields');
 select throws_ok($$update public.tutor_profiles set approval_status='approved' where id='55000000-0000-4000-8000-000000000001'$$,'42501','permission denied for table tutor_profiles','a tutor cannot self-approve their profile');
 select is((select count(*) from public.sessions),1::bigint,'a tutor can view only assigned sessions');
@@ -41,6 +45,13 @@ select throws_ok($$insert into public.progress_reports (student_id,tutor_id,repo
 select lives_ok($$insert into public.progress_reports (student_id,tutor_id,reporting_period) values ('75000000-0000-4000-8000-000000000001','55000000-0000-4000-8000-000000000001','Fall')$$,'a tutor can create a progress report for an assigned student');
 update public.students set grade_level='12' where id='75000000-0000-4000-8000-000000000001';
 select is((select grade_level from public.students where id='75000000-0000-4000-8000-000000000001'),'5','a tutor cannot alter an assigned student');
+reset role;
+insert into auth.users (id,email) values ('15000000-0000-4000-8000-000000000003','legacy-tutor-admin@example.test');
+insert into public.profiles (id,user_id,full_name,email,organization_id,role) values ('65000000-0000-4000-8000-000000000003','15000000-0000-4000-8000-000000000003','Legacy Tutor Admin','legacy-tutor-admin@example.test','25000000-0000-4000-8000-000000000001','admin');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select lives_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001','approved')$$,'an authorized administrator can approve a tutor through the protected-field RPC');
+select is((select approval_status from public.tutor_profiles where id='55000000-0000-4000-8000-000000000001'),'approved'::approval_status,'the administrative RPC updates protected tutor fields');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims','{}',true);
