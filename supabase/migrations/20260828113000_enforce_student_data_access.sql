@@ -2,8 +2,8 @@
 -- An active student may read only the enterprise student record linked to
 -- their authenticated person identity and that student's active learning data.
 
-create or replace function public.mac_current_student_id()
-returns uuid
+create or replace function public.mac_current_student_ids()
+returns setof uuid
 language sql
 stable
 security definer
@@ -22,20 +22,19 @@ as $$
         and public.mac_has_role('student', student.organization_id, null)
       )
     )
-  limit 1;
 $$;
 
-revoke all on function public.mac_current_student_id() from public;
-grant execute on function public.mac_current_student_id() to authenticated;
+revoke all on function public.mac_current_student_ids() from public;
+grant execute on function public.mac_current_student_ids() to authenticated;
 
 create policy "Students view their own enterprise record"
 on public.students for select to authenticated
-using (id = public.mac_current_student_id());
+using (id in (select public.mac_current_student_ids()));
 
 create policy "Students view active own classroom enrollments"
 on public.classroom_student_enrollments for select to authenticated
 using (
-  student_id = public.mac_current_student_id()
+  student_id in (select public.mac_current_student_ids())
   and status = 'active'
   and enrolled_from <= current_date
   and (enrolled_until is null or enrolled_until >= current_date)
@@ -48,7 +47,7 @@ using (status = 'active' and exists (
   from public.classroom_student_enrollments enrollment
   where enrollment.classroom_id = classrooms.id
     and enrollment.organization_id = classrooms.organization_id
-    and enrollment.student_id = public.mac_current_student_id()
+    and enrollment.student_id in (select public.mac_current_student_ids())
     and enrollment.status = 'active'
     and enrollment.enrolled_from <= current_date
     and (enrollment.enrolled_until is null or enrollment.enrolled_until >= current_date)
@@ -56,7 +55,7 @@ using (status = 'active' and exists (
 
 create policy "Students view their own instructional records"
 on public.educator_instructional_records for select to authenticated
-using (student_id = public.mac_current_student_id());
+using (student_id in (select public.mac_current_student_ids()));
 
 comment on policy "Students view their own enterprise record" on public.students is
   'An active student identity can view only the student record linked by public.users.person_id.';
