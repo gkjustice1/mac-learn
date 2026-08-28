@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(14);
+select plan(17);
 
 insert into auth.users (id, email) values
   ('16000000-0000-4000-8000-000000000001', 'assigned-educator@example.test'),
@@ -11,6 +11,10 @@ insert into public.organizations (id, name, slug) values
   ('26000000-0000-4000-8000-000000000001', 'Educator Access Test Organization', 'educator-access-test');
 insert into public.sites (id, organization_id, name, code) values
   ('36000000-0000-4000-8000-000000000001', '26000000-0000-4000-8000-000000000001', 'Educator Access Site', 'EDU');
+insert into public.organizations (id, name, slug) values
+  ('26000000-0000-4000-8000-000000000002', 'Foreign Educator Access Organization', 'foreign-educator-access-test');
+insert into public.sites (id, organization_id, name, code) values
+  ('36000000-0000-4000-8000-000000000002', '26000000-0000-4000-8000-000000000002', 'Foreign Educator Access Site', 'EDU-FOREIGN');
 insert into public.users (id, account_status) values
   ('16000000-0000-4000-8000-000000000001', 'active'),
   ('16000000-0000-4000-8000-000000000002', 'active'),
@@ -38,6 +42,7 @@ insert into public.classroom_student_enrollments (organization_id, classroom_id,
 insert into public.educator_instructional_records (organization_id, classroom_id, student_id, educator_user_id, record_type, content) values
   ('26000000-0000-4000-8000-000000000001', '86000000-0000-4000-8000-000000000001', '76000000-0000-4000-8000-000000000001', '16000000-0000-4000-8000-000000000001', 'observation', 'Assigned observation'),
   ('26000000-0000-4000-8000-000000000001', '86000000-0000-4000-8000-000000000002', '76000000-0000-4000-8000-000000000002', '16000000-0000-4000-8000-000000000002', 'observation', 'Other observation');
+select throws_ok($$insert into public.classrooms (organization_id, site_id, name, code) values ('26000000-0000-4000-8000-000000000001', '36000000-0000-4000-8000-000000000002', 'Cross Tenant Classroom', 'EDU-X')$$, '23503', 'insert or update on table "classrooms" violates foreign key constraint "classrooms_organization_id_site_id_fkey"', 'a classroom cannot reference a site from another organization');
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"16000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
@@ -56,6 +61,12 @@ with changed as (
   returning id
 )
 select is(count(*), 0::bigint, 'an educator cannot alter another educator record') from changed;
+reset role;
+update public.classrooms set status = 'archived' where id = '86000000-0000-4000-8000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"16000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select ok(not public.mac_is_active_classroom_educator('86000000-0000-4000-8000-000000000001'), 'an educator cannot access an archived classroom');
+select throws_ok($$insert into public.educator_instructional_records (organization_id, classroom_id, student_id, educator_user_id, record_type, content) values ('26000000-0000-4000-8000-000000000001', '86000000-0000-4000-8000-000000000001', '76000000-0000-4000-8000-000000000001', '16000000-0000-4000-8000-000000000001', 'instruction', 'Archived classroom instruction')$$, '42501', 'new row violates row-level security policy for table "educator_instructional_records"', 'an educator cannot write an archived classroom record');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"16000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
