@@ -17,12 +17,6 @@ create table if not exists public.classrooms (
   unique (organization_id, code)
 );
 
-alter table public.students
-  drop constraint if exists students_organization_id_id_key;
-
-alter table public.students
-  add constraint students_organization_id_id_key unique (organization_id, id);
-
 create table if not exists public.classroom_educators (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null,
