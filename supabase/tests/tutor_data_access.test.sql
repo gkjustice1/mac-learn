@@ -1,28 +1,32 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(15);
+select plan(19);
 
 insert into auth.users (id,email) values
 ('15000000-0000-4000-8000-000000000001','assigned-tutor@example.test'),
-('15000000-0000-4000-8000-000000000002','other-tutor@example.test');
+('15000000-0000-4000-8000-000000000002','other-tutor@example.test'),
+('15000000-0000-4000-8000-000000000004','organization-tutor-admin@example.test');
 insert into public.organizations (id,name,slug) values
 ('25000000-0000-4000-8000-000000000001','Tutor Access Test Organization','tutor-access-test');
 insert into public.sites (id,organization_id,name,code) values
 ('35000000-0000-4000-8000-000000000001','25000000-0000-4000-8000-000000000001','Tutor Access Site','TUTOR');
 insert into public.users (id,account_status) values
 ('15000000-0000-4000-8000-000000000001','active'),
-('15000000-0000-4000-8000-000000000002','active');
+('15000000-0000-4000-8000-000000000002','active'),
+('15000000-0000-4000-8000-000000000004','active');
 insert into public.profiles (id,user_id,full_name,email,organization_id) values
 ('65000000-0000-4000-8000-000000000001','15000000-0000-4000-8000-000000000001','Assigned Tutor','assigned-tutor@example.test','25000000-0000-4000-8000-000000000001'),
-('65000000-0000-4000-8000-000000000002','15000000-0000-4000-8000-000000000002','Other Tutor','other-tutor@example.test','25000000-0000-4000-8000-000000000001');
+('65000000-0000-4000-8000-000000000002','15000000-0000-4000-8000-000000000002','Other Tutor','other-tutor@example.test','25000000-0000-4000-8000-000000000001'),
+('65000000-0000-4000-8000-000000000004','15000000-0000-4000-8000-000000000004','Organization Tutor Admin','organization-tutor-admin@example.test','25000000-0000-4000-8000-000000000001');
 insert into public.tutor_profiles (id,user_id,organization_id) values
 ('55000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001','25000000-0000-4000-8000-000000000001'),
 ('55000000-0000-4000-8000-000000000002','65000000-0000-4000-8000-000000000002','25000000-0000-4000-8000-000000000001');
 update public.tutor_profiles set site_id='35000000-0000-4000-8000-000000000001' where id='55000000-0000-4000-8000-000000000001';
 insert into public.role_assignments (organization_id,user_id,role_key,status) values
 ('25000000-0000-4000-8000-000000000001','15000000-0000-4000-8000-000000000001','tutor','active'),
-('25000000-0000-4000-8000-000000000001','15000000-0000-4000-8000-000000000002','tutor','active');
+('25000000-0000-4000-8000-000000000001','15000000-0000-4000-8000-000000000002','tutor','active'),
+('25000000-0000-4000-8000-000000000001','15000000-0000-4000-8000-000000000004','organization_admin','active');
 insert into public.students (id,parent_id,first_name,last_name,grade_level,organization_id) values
 ('75000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001','Assigned','Student','5','25000000-0000-4000-8000-000000000001'),
 ('75000000-0000-4000-8000-000000000002','65000000-0000-4000-8000-000000000002','Unassigned','Student','5','25000000-0000-4000-8000-000000000001');
@@ -52,6 +56,13 @@ set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 select lives_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001','approved')$$,'an authorized administrator can approve a tutor through the protected-field RPC');
 select is((select approval_status from public.tutor_profiles where id='55000000-0000-4000-8000-000000000001'),'approved'::approval_status,'the administrative RPC updates protected tutor fields');
+select lives_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001',null,22)$$,'an authorized administrator can set a nullable protected field');
+select lives_ok($$select public.mac_admin_clear_tutor_profile_fields('55000000-0000-4000-8000-000000000001',true)$$,'an authorized administrator can explicitly clear a nullable protected field');
+select is((select hourly_rate from public.tutor_profiles where id='55000000-0000-4000-8000-000000000001'),null::numeric,'the clear RPC removes the requested nullable field');
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+select is((select count(*) from public.tutor_profiles),2::bigint,'an organization administrator can view tutor profiles in their organization');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims','{}',true);
