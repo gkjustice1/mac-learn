@@ -49,12 +49,13 @@ select is((select count(*) from public.students), 1::bigint, 'an educator sees o
 select is((select count(*) from public.educator_instructional_records), 1::bigint, 'an educator sees only records for assigned students');
 select lives_ok($$insert into public.educator_instructional_records (organization_id, classroom_id, student_id, educator_user_id, record_type, content) values ('26000000-0000-4000-8000-000000000001', '86000000-0000-4000-8000-000000000001', '76000000-0000-4000-8000-000000000001', '16000000-0000-4000-8000-000000000001', 'instruction', 'Assigned instruction')$$, 'an educator can create their own record for an assigned student');
 select throws_ok($$insert into public.educator_instructional_records (organization_id, classroom_id, student_id, educator_user_id, record_type, content) values ('26000000-0000-4000-8000-000000000001', '86000000-0000-4000-8000-000000000002', '76000000-0000-4000-8000-000000000002', '16000000-0000-4000-8000-000000000001', 'instruction', 'Cross classroom instruction')$$, '42501', 'new row violates row-level security policy for table "educator_instructional_records"', 'an educator cannot create a record for another educator student');
-select is((with changed as (
+with changed as (
   update public.educator_instructional_records
   set content = 'changed'
   where educator_user_id = '16000000-0000-4000-8000-000000000002'
   returning id
-) select count(*) from changed), 0::bigint, 'an educator cannot alter another educator record');
+)
+select is(count(*), 0::bigint, 'an educator cannot alter another educator record') from changed;
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"16000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
