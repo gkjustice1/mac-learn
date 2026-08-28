@@ -128,12 +128,37 @@ language plpgsql
 security definer
 set search_path = public
 as $admin_update$
+declare
+  current_organization_id uuid;
+  effective_organization_id uuid;
+  replacement_profile_organization_id uuid;
 begin
+  select organization_id into current_organization_id
+  from public.tutor_profiles
+  where id = requested_tutor_id
+  for update;
+
   if not public.mac_can_manage_tutor_profile(
     requested_tutor_id,
     requested_organization_id
   ) then
     raise exception 'not authorized to manage tutor profile' using errcode = '42501';
+  end if;
+
+  effective_organization_id = coalesce(
+    requested_organization_id,
+    current_organization_id
+  );
+
+  if requested_user_id is not null then
+    select organization_id into replacement_profile_organization_id
+    from public.profiles
+    where id = requested_user_id;
+
+    if replacement_profile_organization_id is not null
+       and replacement_profile_organization_id is distinct from effective_organization_id then
+      raise exception 'replacement profile is outside the authorized organization' using errcode = '42501';
+    end if;
   end if;
 
   update public.tutor_profiles
@@ -163,7 +188,14 @@ language plpgsql
 security definer
 set search_path = public
 as $clear_tutor$
+declare
+  current_organization_id uuid;
 begin
+  select organization_id into current_organization_id
+  from public.tutor_profiles
+  where id = requested_tutor_id
+  for update;
+
   if not public.mac_can_manage_tutor_profile(requested_tutor_id, null) then
     raise exception 'not authorized to manage tutor profile' using errcode = '42501';
   end if;
