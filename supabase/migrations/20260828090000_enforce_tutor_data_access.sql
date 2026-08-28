@@ -91,7 +91,10 @@ as $tutor_admin$
     from public.tutor_profiles tutor
     where tutor.id = requested_tutor_id
       and (
-        public.current_user_role() = 'admin'
+        (
+          public.current_user_role() = 'admin'
+          and public.mac_can_use_legacy_admin_access()
+        )
         or public.mac_is_platform_admin()
         or (
           tutor.organization_id is not null
@@ -215,6 +218,19 @@ $clear_tutor$;
 
 revoke all on function public.mac_admin_clear_tutor_profile_fields(uuid, boolean, boolean, boolean, boolean) from public;
 grant execute on function public.mac_admin_clear_tutor_profile_fields(uuid, boolean, boolean, boolean, boolean) to authenticated;
+
+drop policy if exists "Admins manage tutors" on public.tutor_profiles;
+
+create policy "Legacy admins manage tutors during transition"
+on public.tutor_profiles for all to authenticated
+using (
+  public.current_user_role() = 'admin'
+  and public.mac_can_use_legacy_admin_access()
+)
+with check (
+  public.current_user_role() = 'admin'
+  and public.mac_can_use_legacy_admin_access()
+);
 
 create policy "Enterprise administrators view tutor profiles"
 on public.tutor_profiles for select to authenticated
