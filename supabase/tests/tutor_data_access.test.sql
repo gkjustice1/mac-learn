@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(10);
+select plan(12);
 
 insert into auth.users (id,email) values
 ('15000000-0000-4000-8000-000000000001','assigned-tutor@example.test'),
@@ -30,6 +30,8 @@ insert into public.sessions (id,student_id,parent_id,tutor_id,start_time,end_tim
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select is((select count(*) from public.tutor_profiles),1::bigint,'a tutor can view only their own tutor profile');
+select lives_ok($$update public.tutor_profiles set bio='Updated biography' where id='55000000-0000-4000-8000-000000000001'$$,'a tutor can update their own public profile fields');
+select throws_ok($$update public.tutor_profiles set approval_status='approved' where id='55000000-0000-4000-8000-000000000001'$$,'42501','permission denied for table tutor_profiles','a tutor cannot self-approve their profile');
 select is((select count(*) from public.sessions),1::bigint,'a tutor can view only assigned sessions');
 select is((select count(*) from public.students),1::bigint,'a tutor can view only assigned students');
 select is((select count(*) from public.students where id='75000000-0000-4000-8000-000000000002'),0::bigint,'an unassigned student is hidden from the tutor');
