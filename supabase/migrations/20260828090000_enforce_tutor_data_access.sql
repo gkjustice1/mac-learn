@@ -65,6 +65,11 @@ on public.tutor_profiles for update to authenticated
 using (id = public.mac_current_tutor_id())
 with check (id = public.mac_current_tutor_id());
 
+-- A tutor may maintain public professional information, but approval,
+-- compensation, identity, staff, and tenant mappings remain administrative.
+revoke update on table public.tutor_profiles from authenticated;
+grant update (bio, subjects, grade_levels) on table public.tutor_profiles to authenticated;
+
 create policy "Tutors manage their availability"
 on public.tutor_availability for all to authenticated
 using (tutor_id = public.mac_current_tutor_id())
