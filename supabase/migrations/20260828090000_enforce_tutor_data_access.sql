@@ -13,7 +13,13 @@ as $tutor$
   join public.users enterprise_user on enterprise_user.id = auth.uid()
   where profile.user_id = auth.uid()
     and enterprise_user.account_status = 'active'
-    and public.mac_has_role('tutor', tutor.organization_id, tutor.site_id)
+    and (
+      public.mac_has_role('tutor', tutor.organization_id, tutor.site_id)
+      or (
+        tutor.site_id is not null
+        and public.mac_has_role('tutor', tutor.organization_id, null)
+      )
+    )
   limit 1;
 $tutor$;
 
@@ -69,6 +75,51 @@ with check (id = public.mac_current_tutor_id());
 -- compensation, identity, staff, and tenant mappings remain administrative.
 revoke update on table public.tutor_profiles from authenticated;
 grant update (bio, subjects, grade_levels) on table public.tutor_profiles to authenticated;
+
+create or replace function public.mac_admin_update_tutor_profile(
+  requested_tutor_id uuid,
+  requested_approval_status approval_status default null,
+  requested_hourly_rate numeric default null,
+  requested_organization_id uuid default null,
+  requested_site_id uuid default null,
+  requested_person_id uuid default null,
+  requested_staff_id uuid default null,
+  requested_user_id uuid default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $admin_update$
+declare
+  tutor_organization_id uuid;
+begin
+  select organization_id into tutor_organization_id
+  from public.tutor_profiles
+  where id = requested_tutor_id;
+
+  if tutor_organization_id is null
+     or not (
+       public.current_user_role() = 'admin'
+       or public.mac_is_organization_admin(tutor_organization_id)
+     ) then
+    raise exception 'not authorized to manage tutor profile' using errcode = '42501';
+  end if;
+
+  update public.tutor_profiles
+  set approval_status = coalesce(requested_approval_status, approval_status),
+      hourly_rate = coalesce(requested_hourly_rate, hourly_rate),
+      organization_id = coalesce(requested_organization_id, organization_id),
+      site_id = coalesce(requested_site_id, site_id),
+      person_id = coalesce(requested_person_id, person_id),
+      staff_id = coalesce(requested_staff_id, staff_id),
+      user_id = coalesce(requested_user_id, user_id)
+  where id = requested_tutor_id;
+end;
+$admin_update$;
+
+revoke all on function public.mac_admin_update_tutor_profile(uuid, approval_status, numeric, uuid, uuid, uuid, uuid, uuid) from public;
+grant execute on function public.mac_admin_update_tutor_profile(uuid, approval_status, numeric, uuid, uuid, uuid, uuid, uuid) to authenticated;
 
 create policy "Tutors manage their availability"
 on public.tutor_availability for all to authenticated
