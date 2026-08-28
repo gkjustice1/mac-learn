@@ -22,7 +22,7 @@ insert into public.role_assignments (organization_id,user_id,role_key,status) va
 ('25000000-0000-4000-8000-000000000001','15000000-0000-4000-8000-000000000002','tutor','active');
 insert into public.students (id,parent_id,first_name,last_name,grade_level,organization_id) values
 ('75000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001','Assigned','Student','5','25000000-0000-4000-8000-000000000001'),
-('75000000-0000-4000-8000-000000000002','65000000-0000-4000-8000-000000000001','Unassigned','Student','5','25000000-0000-4000-8000-000000000001');
+('75000000-0000-4000-8000-000000000002','65000000-0000-4000-8000-000000000002','Unassigned','Student','5','25000000-0000-4000-8000-000000000001');
 insert into public.sessions (id,student_id,parent_id,tutor_id,start_time,end_time) values
 ('85000000-0000-4000-8000-000000000001','75000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001','55000000-0000-4000-8000-000000000001',now(),now()+interval '1 hour'),
 ('85000000-0000-4000-8000-000000000002','75000000-0000-4000-8000-000000000002','65000000-0000-4000-8000-000000000001','55000000-0000-4000-8000-000000000002',now(),now()+interval '1 hour');
@@ -40,6 +40,9 @@ select lives_ok($$insert into public.progress_reports (student_id,tutor_id,repor
 update public.students set grade_level='12' where id='75000000-0000-4000-8000-000000000001';
 select is((select grade_level from public.students where id='75000000-0000-4000-8000-000000000001'),'5','a tutor cannot alter an assigned student');
 reset role;
+set local role authenticated;
+select set_config('request.jwt.claims','{}',true);
 select ok(not public.mac_tutor_is_assigned_to_student('75000000-0000-4000-8000-000000000001'),'unauthenticated callers cannot resolve tutor assignments');
+reset role;
 select * from finish();
 rollback;
