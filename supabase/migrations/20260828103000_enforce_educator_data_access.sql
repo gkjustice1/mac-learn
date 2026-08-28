@@ -7,14 +7,16 @@
 create table if not exists public.classrooms (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete restrict,
-  site_id uuid references public.sites(id) on delete set null,
+  site_id uuid,
   name text not null,
   code text,
   status text not null default 'active' check (status in ('active', 'archived')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (organization_id, id),
-  unique (organization_id, code)
+  unique (organization_id, code),
+  foreign key (organization_id, site_id)
+    references public.sites(organization_id, id) on delete restrict
 );
 
 create table if not exists public.classroom_educators (
@@ -107,6 +109,7 @@ as $$
     join public.role_assignments role_assignment on role_assignment.user_id = assignment.user_id
     where assignment.classroom_id = requested_classroom_id
       and assignment.user_id = auth.uid()
+      and classroom.status = 'active'
       and assignment.status = 'active'
       and assignment.assigned_from <= current_date
       and (assignment.assigned_until is null or assignment.assigned_until >= current_date)
