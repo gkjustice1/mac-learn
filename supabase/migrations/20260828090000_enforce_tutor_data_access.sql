@@ -131,9 +131,11 @@ as $admin_update$
 declare
   current_organization_id uuid;
   effective_organization_id uuid;
+  effective_user_id uuid;
   replacement_profile_organization_id uuid;
 begin
-  select organization_id into current_organization_id
+  select organization_id, user_id
+  into current_organization_id, effective_user_id
   from public.tutor_profiles
   where id = requested_tutor_id
   for update;
@@ -150,10 +152,12 @@ begin
     current_organization_id
   );
 
-  if requested_user_id is not null then
+  effective_user_id = coalesce(requested_user_id, effective_user_id);
+
+  if effective_user_id is not null then
     select organization_id into replacement_profile_organization_id
     from public.profiles
-    where id = requested_user_id;
+    where id = effective_user_id;
 
     if replacement_profile_organization_id is not null
        and replacement_profile_organization_id is distinct from effective_organization_id then
