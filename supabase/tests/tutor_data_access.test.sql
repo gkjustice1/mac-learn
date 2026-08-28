@@ -69,7 +69,7 @@ insert into public.users (id,account_status) values ('15000000-0000-4000-8000-00
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 select is((select count(*) from public.tutor_profiles),0::bigint,'a migrated legacy admin cannot read tutor profiles without enterprise authorization');
-select throws_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001','approved')$$,'42501','not authorized to manage this tutor profile','a migrated legacy admin cannot use tutor administration RPCs');
+select throws_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001','approved')$$,'42501','not authorized to manage tutor profile','a migrated legacy admin cannot use tutor administration RPCs');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000004","role":"authenticated"}',true);
