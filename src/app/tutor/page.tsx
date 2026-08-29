@@ -32,6 +32,15 @@ function formatTime(value: string) {
   }).format(new Date(Date.UTC(2000, 0, 1, Number(hour), Number(minute))));
 }
 
+type StudentScope = {
+  organization_id: string;
+  primary_site_id: string | null;
+};
+
+function relatedRecord<T>(value: T | T[] | null): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
     <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
@@ -54,6 +63,12 @@ export default async function TutorPage() {
   });
 
   const supabase = await createClient();
+  const tutorAssignments = context.roles.filter(
+    (role) => role.role === "tutor" && role.organizationId
+  );
+  const organizationIds = [
+    ...new Set(tutorAssignments.map((role) => role.organizationId as string)),
+  ];
   const { data: tutorId, error: tutorIdError } = await supabase.rpc(
     "mac_current_tutor_id"
   );
@@ -64,8 +79,9 @@ export default async function TutorPage() {
 
   const [
     organizationResult,
-    organizationConfigurationResult,
+    organizationConfigurationsResult,
     siteResult,
+    scopeSitesResult,
     studentsResult,
     sessionsResult,
     availabilityResult,
@@ -79,9 +95,8 @@ export default async function TutorPage() {
       .maybeSingle(),
     supabase
       .from("organization_configurations")
-      .select("default_timezone")
-      .eq("organization_id", assignment.organizationId)
-      .maybeSingle(),
+      .select("organization_id, default_timezone")
+      .in("organization_id", organizationIds),
     assignment.siteId
       ? supabase
           .from("sites")
@@ -90,6 +105,10 @@ export default async function TutorPage() {
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     supabase
+      .from("sites")
+      .select("id, organization_id, timezone")
+      .in("organization_id", organizationIds),
+    supabase
       .from("students")
       .select("id, first_name, last_name, grade_level, school_name")
       .order("last_name")
@@ -97,7 +116,7 @@ export default async function TutorPage() {
     supabase
       .from("sessions")
       .select(
-        "id, student_id, start_time, end_time, status, zoom_link, student:students(first_name, last_name), subject:subjects(name)"
+        "id, student_id, start_time, end_time, status, zoom_link, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)"
       )
       .order("start_time", { ascending: true }),
     supabase
@@ -114,15 +133,16 @@ export default async function TutorPage() {
     supabase
       .from("progress_reports")
       .select(
-        "id, student_id, reporting_period, strengths, areas_for_improvement, skills_mastered, next_goals, comments, created_at, student:students(first_name, last_name)"
+        "id, student_id, reporting_period, strengths, areas_for_improvement, skills_mastered, next_goals, comments, created_at, student:students(first_name, last_name, organization_id, primary_site_id)"
       )
       .order("created_at", { ascending: false }),
   ]);
 
   const failedResult = [
     organizationResult,
-    organizationConfigurationResult,
+    organizationConfigurationsResult,
     siteResult,
+    scopeSitesResult,
     studentsResult,
     sessionsResult,
     availabilityResult,
@@ -139,12 +159,31 @@ export default async function TutorPage() {
   const availability = availabilityResult.data ?? [];
   const notes = notesResult.data ?? [];
   const reports = reportsResult.data ?? [];
-  const workspaceTimeZone =
-    siteResult.data?.timezone ??
-    organizationConfigurationResult.data?.default_timezone ??
+  const organizationTimeZones = new Map(
+    (organizationConfigurationsResult.data ?? []).map((configuration) => [
+      configuration.organization_id,
+      configuration.default_timezone,
+    ])
+  );
+  const siteTimeZones = new Map(
+    (scopeSitesResult.data ?? []).map((site) => [site.id, site.timezone])
+  );
+  const timeZoneForStudent = (student: StudentScope | null) =>
+    (student?.primary_site_id
+      ? siteTimeZones.get(student.primary_site_id)
+      : undefined) ??
+    (student?.organization_id
+      ? organizationTimeZones.get(student.organization_id)
+      : undefined) ??
     "UTC";
+  const sessionTimeZones = new Map(
+    sessions.map((session) => [
+      session.id,
+      timeZoneForStudent(relatedRecord(session.student)),
+    ])
+  );
   const openSessions = sessions.filter((session) =>
-    ["pending", "confirmed"].includes(session.status)
+    ["pending", "confirmed"].includes(session.status ?? "")
   );
 
   return (
@@ -282,12 +321,9 @@ export default async function TutorPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-200">
                     {sessions.map((session) => {
-                      const student = Array.isArray(session.student)
-                        ? session.student[0]
-                        : session.student;
-                      const subject = Array.isArray(session.subject)
-                        ? session.subject[0]
-                        : session.subject;
+                      const student = relatedRecord(session.student);
+                      const subject = relatedRecord(session.subject);
+                      const sessionTimeZone = timeZoneForStudent(student);
 
                       return (
                       <tr key={session.id}>
@@ -298,10 +334,10 @@ export default async function TutorPage() {
                           {subject?.name ?? "General tutoring"}
                         </td>
                         <td className="px-4 py-4">
-                          {formatDateTime(session.start_time, workspaceTimeZone)}
+                          {formatDateTime(session.start_time, sessionTimeZone)}
                         </td>
                         <td className="px-4 py-4 capitalize">
-                          {session.status.replaceAll("_", " ")}
+                          {(session.status ?? "unspecified").replaceAll("_", " ")}
                         </td>
                         <td className="px-4 py-4">
                           {session.zoom_link ? (
@@ -362,7 +398,10 @@ export default async function TutorPage() {
                       {note.attendance_status} attendance
                     </h3>
                     <span className="text-xs text-slate-500">
-                      {formatDateTime(note.created_at, workspaceTimeZone)}
+                      {formatDateTime(
+                        note.created_at,
+                        sessionTimeZones.get(note.session_id) ?? "UTC"
+                      )}
                     </span>
                   </div>
                   <p className="mt-3 text-sm leading-6 text-slate-700">
@@ -386,9 +425,7 @@ export default async function TutorPage() {
               <EmptyState>No progress reports have been created.</EmptyState>
             ) : (
               reports.map((report) => {
-                const student = Array.isArray(report.student)
-                  ? report.student[0]
-                  : report.student;
+                const student = relatedRecord(report.student);
 
                 return (
                 <article
