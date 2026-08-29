@@ -22,7 +22,7 @@ test("invitation provisioning is server-only and organization-scoped", () => {
   assert.match(source, /\.eq\("status", "active"\)/);
   assert.match(source, /inviteUserByEmail/);
   assert.match(source, /redirectTo: `\$\{appUrl\}\/auth\/callback`/);
-  assert.match(source, /account_status: "invited"/);
+  assert.match(source, /mac_create_invited_enterprise_identity/);
 });
 
 test("invitation provisioning excludes administrative role escalation", () => {
@@ -36,7 +36,21 @@ test("invitation provisioning rejects cross-tenant sites and invalid role scopes
 });
 
 test("invitation provisioning cleans up failed invitations and preserves the admin audit actor", () => {
-  assert.match(source, /if \(invitedUserId && adminClient\)/);
+  const provisionInvitationSource = source.match(
+    /export async function provisionInvitation[\s\S]*?\n}\n\nfunction getSupportedLocales/
+  )?.[0] ?? "";
+
+  assert.match(provisionInvitationSource, /mac_cleanup_invited_enterprise_identity/);
+  assert.match(provisionInvitationSource, /if \(invitedUserId && adminClient\)/);
+  assert.doesNotMatch(provisionInvitationSource, /invitedUserId && personId/);
+  assert.match(provisionInvitationSource, /cleanupStatus === "cleaned"/);
+  assert.match(provisionInvitationSource, /cleanupStatus === "missing"/);
+  assert.match(provisionInvitationSource, /deleteInvitedAuthUser/);
+  assert.ok(
+    provisionInvitationSource.indexOf("mac_cleanup_invited_enterprise_identity") <
+      provisionInvitationSource.indexOf("deleteUser(invitedUserId)")
+  );
+  assert.doesNotMatch(provisionInvitationSource, /\.from\("(?:people|users|profiles)"\)/);
   assert.match(source, /supabase\.from\("role_assignments"\)\.insert/);
 });
 
