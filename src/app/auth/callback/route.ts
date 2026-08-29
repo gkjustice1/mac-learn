@@ -40,7 +40,9 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
+    return NextResponse.redirect(
+      new URL("/update-password?onboarding=invite", requestUrl.origin)
+    );
   }
 
   return NextResponse.redirect(new URL("/update-password", requestUrl.origin));
