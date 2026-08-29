@@ -57,3 +57,35 @@ test("Tutor scope grants organization and site name visibility", () => {
   assert.match(profileMigration, /"Tutors view assigned sites"/);
   assert.match(profileMigration, /mac_has_role\('tutor', organization_id, id\)/);
 });
+
+test("Tutor data policies retain tenant scope after reassignment", () => {
+  assert.match(
+    profileMigration,
+    /assignment\.organization_id = student\.organization_id/
+  );
+  assert.match(
+    profileMigration,
+    /assignment\.site_id is null[\s\S]*assignment\.site_id = student\.primary_site_id/
+  );
+  assert.match(
+    profileMigration,
+    /"Tutors view assigned sessions"[\s\S]*mac_tutor_is_assigned_to_student/
+  );
+  assert.match(
+    profileMigration,
+    /"Tutors view their session notes"[\s\S]*mac_tutor_owns_session/
+  );
+  assert.match(
+    profileMigration,
+    /"Tutors view their progress reports"[\s\S]*mac_tutor_is_assigned_to_student/
+  );
+});
+
+test("Tutor timestamps use the assigned tenant timezone", () => {
+  assert.match(workspace, /siteResult\.data\?\.timezone/);
+  assert.match(
+    workspace,
+    /organizationConfigurationResult\.data\?\.default_timezone/
+  );
+  assert.match(workspace, /formatDateTime\(session\.start_time, workspaceTimeZone\)/);
+});
