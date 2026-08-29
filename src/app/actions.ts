@@ -129,7 +129,6 @@ export async function provisionInvitation(
   formData: FormData
 ): Promise<ProvisionInvitationActionState> {
   let invitedUserId: string | null = null;
-  let personId: string | null = null;
   let adminClient: ReturnType<typeof createAdminClient> | null = null;
 
   try {
@@ -212,8 +211,6 @@ export async function provisionInvitation(
         `Unable to create identity: ${identityError?.message ?? "unknown error"}`
       );
     }
-    personId = createdPersonId;
-
     const { error: roleError } = await supabase.from("role_assignments").insert({
       user_id: invitedUserId,
       role_key: roleValue,
@@ -227,7 +224,7 @@ export async function provisionInvitation(
 
     return { error: null, invited: true };
   } catch (error) {
-    if (invitedUserId && personId && adminClient) {
+    if (invitedUserId && adminClient) {
       await adminClient.rpc("mac_cleanup_invited_enterprise_identity", {
         p_user_id: invitedUserId,
       });
