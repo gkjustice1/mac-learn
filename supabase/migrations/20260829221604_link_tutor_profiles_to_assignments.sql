@@ -43,13 +43,29 @@ on public.role_assignments
 for each row
 execute function public.mac_sync_tutor_profile_from_assignment();
 
+drop policy if exists "Tutors view assigned organizations"
+on public.organizations;
+create policy "Tutors view assigned organizations"
+on public.organizations
+for select
+to authenticated
+using (public.mac_has_role('tutor', id, null));
+
+drop policy if exists "Tutors view assigned sites"
+on public.sites;
+create policy "Tutors view assigned sites"
+on public.sites
+for select
+to authenticated
+using (public.mac_has_role('tutor', organization_id, id));
+
 insert into public.tutor_profiles (
   user_id,
   organization_id,
   site_id,
   person_id
 )
-select
+select distinct on (profile.id)
   profile.id,
   assignment.organization_id,
   assignment.site_id,
@@ -59,8 +75,11 @@ join public.profiles as profile
   on profile.user_id = assignment.user_id
 where assignment.role_key = 'tutor'
   and assignment.status = 'active'
+order by
+  profile.id,
+  assignment.site_id nulls first,
+  assignment.created_at desc
 on conflict (user_id) do update
 set organization_id = excluded.organization_id,
     site_id = excluded.site_id,
     person_id = excluded.person_id;
-
