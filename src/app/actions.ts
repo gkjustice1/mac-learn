@@ -230,7 +230,6 @@ export async function provisionInvitation(
     if (invitedUserId && personId && adminClient) {
       await adminClient.rpc("mac_cleanup_invited_enterprise_identity", {
         p_user_id: invitedUserId,
-        p_person_id: personId,
       });
     }
 
