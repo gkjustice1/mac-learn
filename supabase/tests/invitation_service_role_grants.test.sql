@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(23);
+select plan(25);
 
 select ok(not has_table_privilege('service_role', 'public.people', 'select'), 'service_role cannot select people');
 select ok(not has_table_privilege('service_role', 'public.people', 'insert'), 'service_role cannot insert people directly');
@@ -61,14 +61,42 @@ select is(
   public.mac_cleanup_invited_enterprise_identity(
     '7a000000-0000-4000-8000-000000000001'
   ),
-  false,
-  'cleanup rejects a mismatched person identifier'
+  'missing',
+  'cleanup identifies a missing invited identity'
 );
+reset role;
+
+update public.users
+set account_status = 'active'
+where id = '4a000000-0000-4000-8000-000000000001';
+
+set local role service_role;
 select is(
   public.mac_cleanup_invited_enterprise_identity(
     '4a000000-0000-4000-8000-000000000001'
   ),
-  true,
+  'not_invited',
+  'cleanup refuses an identity that is no longer invited'
+);
+reset role;
+
+select ok(
+  exists (select 1 from public.people where primary_email = 'service-role-invite@example.test')
+  and exists (select 1 from public.users where id = '4a000000-0000-4000-8000-000000000001' and account_status = 'active')
+  and exists (select 1 from public.profiles where user_id = '4a000000-0000-4000-8000-000000000001'),
+  'refused cleanup preserves the active linked identity'
+);
+
+update public.users
+set account_status = 'invited'
+where id = '4a000000-0000-4000-8000-000000000001';
+
+set local role service_role;
+select is(
+  public.mac_cleanup_invited_enterprise_identity(
+    '4a000000-0000-4000-8000-000000000001'
+  ),
+  'cleaned',
   'cleanup removes only the matching invited identity'
 );
 reset role;
