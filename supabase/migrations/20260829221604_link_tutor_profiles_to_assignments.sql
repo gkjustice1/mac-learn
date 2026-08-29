@@ -72,6 +72,67 @@ from public, anon;
 grant execute on function public.mac_tutor_can_view_organization(uuid)
 to authenticated;
 
+create or replace function public.mac_tutor_is_assigned_to_student(
+  requested_student_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+    from public.sessions as session
+    join public.students as student
+      on student.id = session.student_id
+    join public.role_assignments as assignment
+      on assignment.user_id = (select auth.uid())
+      and assignment.role_key = 'tutor'
+      and assignment.organization_id = student.organization_id
+      and (
+        assignment.site_id is null
+        or assignment.site_id = student.primary_site_id
+      )
+      and assignment.status = 'active'
+      and assignment.valid_from <= now()
+      and (assignment.valid_until is null or assignment.valid_until > now())
+    join public.users as enterprise_user
+      on enterprise_user.id = assignment.user_id
+      and enterprise_user.account_status = 'active'
+    where session.student_id = requested_student_id
+      and session.tutor_id = public.mac_current_tutor_id()
+  );
+$$;
+
+revoke all on function public.mac_tutor_is_assigned_to_student(uuid)
+from public, anon;
+grant execute on function public.mac_tutor_is_assigned_to_student(uuid)
+to authenticated;
+
+create or replace function public.mac_tutor_owns_session(
+  requested_session_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+    from public.sessions as session
+    where session.id = requested_session_id
+      and session.tutor_id = public.mac_current_tutor_id()
+      and public.mac_tutor_is_assigned_to_student(session.student_id)
+  );
+$$;
+
+revoke all on function public.mac_tutor_owns_session(uuid)
+from public, anon;
+grant execute on function public.mac_tutor_owns_session(uuid)
+to authenticated;
+
 drop policy if exists "Tutors view assigned organizations"
 on public.organizations;
 create policy "Tutors view assigned organizations"
@@ -87,6 +148,47 @@ on public.sites
 for select
 to authenticated
 using (public.mac_has_role('tutor', organization_id, id));
+
+drop policy if exists "Tutors view assigned organization configuration"
+on public.organization_configurations;
+create policy "Tutors view assigned organization configuration"
+on public.organization_configurations
+for select
+to authenticated
+using (public.mac_tutor_can_view_organization(organization_id));
+
+drop policy if exists "Tutors view assigned sessions"
+on public.sessions;
+create policy "Tutors view assigned sessions"
+on public.sessions
+for select
+to authenticated
+using (
+  tutor_id = public.mac_current_tutor_id()
+  and public.mac_tutor_is_assigned_to_student(student_id)
+);
+
+drop policy if exists "Tutors view their session notes"
+on public.session_notes;
+create policy "Tutors view their session notes"
+on public.session_notes
+for select
+to authenticated
+using (
+  tutor_id = public.mac_current_tutor_id()
+  and public.mac_tutor_owns_session(session_id)
+);
+
+drop policy if exists "Tutors view their progress reports"
+on public.progress_reports;
+create policy "Tutors view their progress reports"
+on public.progress_reports
+for select
+to authenticated
+using (
+  tutor_id = public.mac_current_tutor_id()
+  and public.mac_tutor_is_assigned_to_student(student_id)
+);
 
 insert into public.tutor_profiles (
   user_id,
