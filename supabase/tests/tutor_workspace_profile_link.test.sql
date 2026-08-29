@@ -121,6 +121,10 @@ select ok(
   'Tutor assignment scope changes synchronize the linked tutor profile'
 );
 
+update public.role_assignments
+set site_id = '92000000-0000-4000-8000-000000000001'
+where id = '96000000-0000-4000-8000-000000000001';
+
 insert into public.staff (id, organization_id, person_id, staff_type)
 values (
   '97000000-0000-4000-8000-000000000001',
@@ -165,7 +169,7 @@ select ok(
     from public.tutor_profiles
     where user_id = '95000000-0000-4000-8000-000000000001'
       and organization_id = '91000000-0000-4000-8000-000000000001'
-      and site_id is null
+      and site_id = '92000000-0000-4000-8000-000000000001'
   ),
   'revoking the selected Tutor assignment falls back to another effective assignment'
 );
