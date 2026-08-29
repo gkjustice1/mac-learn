@@ -43,45 +43,47 @@ end;
 $$;
 
 create or replace function public.mac_cleanup_invited_enterprise_identity(
-  p_user_id uuid,
-  p_person_id uuid
+  p_user_id uuid
 )
 returns boolean
 language plpgsql
 security definer
 set search_path = pg_catalog, public
 as $$
+declare
+  cleanup_person_id uuid;
 begin
-  if not exists (
-    select 1 from public.users as enterprise_user
-    where enterprise_user.id = p_user_id
-      and enterprise_user.person_id = p_person_id
-      and enterprise_user.account_status = 'invited'
-  ) then
+  select enterprise_user.person_id
+  into cleanup_person_id
+  from public.users as enterprise_user
+  where enterprise_user.id = p_user_id
+    and enterprise_user.account_status = 'invited';
+
+  if cleanup_person_id is null then
     return false;
   end if;
 
   delete from public.profiles
   where user_id = p_user_id
-    and person_id = p_person_id
+    and person_id = cleanup_person_id
     and enterprise_user_id = p_user_id;
 
   delete from public.users
   where id = p_user_id
-    and person_id = p_person_id
+    and person_id = cleanup_person_id
     and account_status = 'invited';
 
-  delete from public.people where id = p_person_id;
+  delete from public.people where id = cleanup_person_id;
   return true;
 end;
 $$;
 
 revoke all on function public.mac_create_invited_enterprise_identity(uuid, text, text, text, uuid, uuid)
 from public, anon, authenticated;
-revoke all on function public.mac_cleanup_invited_enterprise_identity(uuid, uuid)
+revoke all on function public.mac_cleanup_invited_enterprise_identity(uuid)
 from public, anon, authenticated;
 
 grant execute on function public.mac_create_invited_enterprise_identity(uuid, text, text, text, uuid, uuid)
 to service_role;
-grant execute on function public.mac_cleanup_invited_enterprise_identity(uuid, uuid)
+grant execute on function public.mac_cleanup_invited_enterprise_identity(uuid)
 to service_role;
