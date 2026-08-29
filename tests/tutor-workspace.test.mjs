@@ -51,6 +51,16 @@ test("Tutor profile backfill handles users with multiple active scopes", () => {
   assert.match(profileMigration, /order by[\s\S]*profile\.id/);
 });
 
+test("Tutor profile synchronization falls back and clears stale staff links", () => {
+  assert.match(profileMigration, /assignment\.valid_from <= now\(\)/);
+  assert.match(profileMigration, /assignment\.valid_until is null/);
+  assert.match(profileMigration, /role_assignments_delete_sync_tutor_profile/);
+  assert.match(
+    profileMigration,
+    /tutor_profiles\.organization_id is distinct from excluded\.organization_id[\s\S]*then null/
+  );
+});
+
 test("Tutor scope grants organization and site name visibility", () => {
   assert.match(profileMigration, /"Tutors view assigned organizations"/);
   assert.match(profileMigration, /mac_tutor_can_view_organization\(id\)/);
@@ -81,11 +91,16 @@ test("Tutor data policies retain tenant scope after reassignment", () => {
   );
 });
 
-test("Tutor timestamps use the assigned tenant timezone", () => {
-  assert.match(workspace, /siteResult\.data\?\.timezone/);
+test("Tutor timestamps use each record's tenant timezone", () => {
+  assert.match(workspace, /organizationTimeZones = new Map/);
+  assert.match(workspace, /siteTimeZones = new Map/);
   assert.match(
     workspace,
-    /organizationConfigurationResult\.data\?\.default_timezone/
+    /timeZoneForStudent\(relatedRecord\(session\.student\)\)/
   );
-  assert.match(workspace, /formatDateTime\(session\.start_time, workspaceTimeZone\)/);
+  assert.match(workspace, /sessionTimeZones\.get\(note\.session_id\)/);
+});
+
+test("Tutor workspace safely renders sessions without a status", () => {
+  assert.match(workspace, /session\.status \?\? "unspecified"/);
 });
