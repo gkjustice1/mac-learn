@@ -43,6 +43,9 @@ test("invitation provisioning cleans up failed invitations and preserves the adm
   assert.match(provisionInvitationSource, /mac_cleanup_invited_enterprise_identity/);
   assert.match(provisionInvitationSource, /if \(invitedUserId && adminClient\)/);
   assert.doesNotMatch(provisionInvitationSource, /invitedUserId && personId/);
+  assert.match(provisionInvitationSource, /cleanupStatus === "cleaned"/);
+  assert.match(provisionInvitationSource, /cleanupStatus === "missing"/);
+  assert.match(provisionInvitationSource, /deleteInvitedAuthUser/);
   assert.ok(
     provisionInvitationSource.indexOf("mac_cleanup_invited_enterprise_identity") <
       provisionInvitationSource.indexOf("deleteUser(invitedUserId)")
