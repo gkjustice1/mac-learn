@@ -156,6 +156,9 @@ export function InvitationForm() {
   const [organizationId, setOrganizationId] = useState("");
   const [roleKey, setRoleKey] = useState("");
   const [siteId, setSiteId] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
 
   const isOrganizationScoped = roleKey === "academic_lead";
 
@@ -199,6 +202,8 @@ export function InvitationForm() {
           <input
             name="first_name"
             required
+            value={firstName}
+            onChange={(event) => setFirstName(event.target.value)}
             autoComplete="given-name"
             className="rounded-xl border border-slate-300 px-4 py-3 font-normal text-slate-950"
           />
@@ -209,6 +214,8 @@ export function InvitationForm() {
           <input
             name="last_name"
             required
+            value={lastName}
+            onChange={(event) => setLastName(event.target.value)}
             autoComplete="family-name"
             className="rounded-xl border border-slate-300 px-4 py-3 font-normal text-slate-950"
           />
@@ -221,6 +228,8 @@ export function InvitationForm() {
           name="email"
           type="email"
           required
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
           autoComplete="email"
           className="rounded-xl border border-slate-300 px-4 py-3 font-normal text-slate-950"
         />
