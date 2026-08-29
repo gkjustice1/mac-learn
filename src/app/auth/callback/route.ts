@@ -29,17 +29,6 @@ export async function GET(request: Request) {
   }
 
   if (type === "invite") {
-    const { data: activated, error: activationError } = await supabase.rpc(
-      "mac_activate_invited_enterprise_user"
-    );
-
-    if (activationError || !activated) {
-      await supabase.auth.signOut();
-      return NextResponse.redirect(
-        new URL("/login?error=activation_failed", requestUrl.origin)
-      );
-    }
-
     return NextResponse.redirect(
       new URL("/update-password?onboarding=invite", requestUrl.origin)
     );

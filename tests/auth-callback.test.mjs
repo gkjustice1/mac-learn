@@ -23,17 +23,10 @@ test("the invite template sends the token hash and invite type to the callback",
   assert.match(inviteTemplate, /type=invite/);
 });
 
-test("the auth callback activates invited users after invite-link verification", () => {
+test("the auth callback verifies invitation links without activating the identity", () => {
   assert.match(callbackSource, /type !== "recovery" && type !== "invite"/);
   assert.match(callbackSource, /if \(type === "invite"\)/);
-  assert.match(callbackSource, /mac_activate_invited_enterprise_user/);
-});
-
-test("invited users must set a password before entering the dashboard", () => {
-  const inviteBranch = callbackSource.match(
-    /if \(type === "invite"\)[\s\S]*?return NextResponse\.redirect\([\s\S]*?\n  \}/
-  )?.[0] ?? "";
-
-  assert.match(inviteBranch, /\/update-password\?onboarding=invite/);
-  assert.doesNotMatch(inviteBranch, /new URL\("\/dashboard"/);
+  assert.match(callbackSource, /\/update-password\?onboarding=invite/);
+  assert.doesNotMatch(callbackSource, /mac_activate_invited_enterprise_user/);
+  assert.doesNotMatch(callbackSource, /new URL\("\/dashboard"/);
 });
