@@ -224,13 +224,19 @@ export async function provisionInvitation(
 
     return { error: null, invited: true };
   } catch (error) {
-    if (invitedUserId && adminClient) {
-      await adminClient.rpc("mac_cleanup_invited_enterprise_identity", {
-        p_user_id: invitedUserId,
-      });
-    }
+    let deleteInvitedAuthUser = false;
 
     if (invitedUserId && adminClient) {
+      const { data: cleanupStatus, error: cleanupError } = await adminClient.rpc(
+        "mac_cleanup_invited_enterprise_identity",
+        { p_user_id: invitedUserId }
+      );
+      deleteInvitedAuthUser =
+        !cleanupError &&
+        (cleanupStatus === "cleaned" || cleanupStatus === "missing");
+    }
+
+    if (invitedUserId && adminClient && deleteInvitedAuthUser) {
       await adminClient.auth.admin.deleteUser(invitedUserId);
     }
 
