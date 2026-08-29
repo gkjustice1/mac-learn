@@ -118,6 +118,7 @@ function ScopeSearchField({
       <select
         id={name}
         name={name}
+        aria-label={`${label} selection`}
         value={value}
         required={required}
         disabled={disabled}
