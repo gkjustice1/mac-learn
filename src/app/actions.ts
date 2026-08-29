@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import {
   type MacRole,
+  requireOrganizationAdmin,
   requirePlatformAdmin,
 } from "@/lib/auth/authorization";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,6 +17,11 @@ type RoleAssignmentActionState = {
 
 type OrganizationConfigurationActionState = {
   error: string | null;
+};
+
+export type ProvisionInvitationActionState = {
+  error: string | null;
+  invited: boolean;
 };
 
 export type RoleAssignmentSearchKind =
@@ -70,6 +76,14 @@ const OPERATIONAL_ROLES: MacRole[] = [
   "teacher",
 ];
 
+const PROVISIONABLE_ROLES: MacRole[] = [
+  "student",
+  "guardian",
+  "tutor",
+  "teacher",
+  "academic_lead",
+];
+
 function getRequiredString(
   formData: FormData,
   fieldName: string
@@ -108,6 +122,137 @@ function getErrorMessage(error: unknown) {
   }
 
   return "Unable to create role assignment.";
+}
+
+export async function provisionInvitation(
+  _previousState: ProvisionInvitationActionState,
+  formData: FormData
+): Promise<ProvisionInvitationActionState> {
+  let invitedUserId: string | null = null;
+  let personId: string | null = null;
+  let enterpriseIdentityCreated = false;
+  let adminClient: ReturnType<typeof createAdminClient> | null = null;
+
+  try {
+    const email = getRequiredString(formData, "email").toLowerCase();
+    const firstName = getRequiredString(formData, "first_name");
+    const lastName = getRequiredString(formData, "last_name");
+    const organizationId = getRequiredString(formData, "organization_id");
+    const siteId = getOptionalString(formData, "site_id");
+    const roleValue = getRequiredString(formData, "role_key");
+
+    if (!isMacRole(roleValue) || !PROVISIONABLE_ROLES.includes(roleValue)) {
+      throw new Error("This role cannot be provisioned through invitations.");
+    }
+
+    if (roleValue === "academic_lead" && siteId) {
+      throw new Error("Academic Lead invitations must be organization-scoped.");
+    }
+
+    await requireOrganizationAdmin(organizationId);
+    const supabase = await createClient();
+
+    const { data: organization, error: organizationError } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("id", organizationId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (organizationError || !organization) {
+      throw new Error("The selected organization is not active.");
+    }
+
+    if (siteId) {
+      const { data: site, error } = await supabase
+        .from("sites")
+        .select("id, organization_id, status")
+        .eq("id", siteId)
+        .maybeSingle();
+
+      if (
+        error ||
+        !site ||
+        site.organization_id !== organizationId ||
+        site.status !== "active"
+      ) {
+        throw new Error("The selected site is not an active site in this organization.");
+      }
+    }
+
+    adminClient = createAdminClient();
+    const { data: invite, error: inviteError } = await adminClient.auth.admin
+      .inviteUserByEmail(email, {
+        data: { first_name: firstName, last_name: lastName },
+      });
+
+    if (inviteError || !invite.user) {
+      throw new Error(`Unable to send invitation: ${inviteError?.message ?? "unknown error"}`);
+    }
+
+    invitedUserId = invite.user.id;
+    const { data: person, error: personError } = await adminClient
+      .from("people")
+      .insert({
+        first_name: firstName,
+        last_name: lastName,
+        primary_email: email,
+      })
+      .select("id")
+      .single();
+    if (personError || !person) {
+      throw new Error(
+        `Unable to create identity: ${personError?.message ?? "unknown error"}`
+      );
+    }
+    personId = person.id;
+
+    const { error: userError } = await adminClient.from("users").insert({
+      id: invitedUserId,
+      person_id: person.id,
+      account_status: "invited",
+    });
+    if (userError) {
+      throw new Error(`Unable to create enterprise identity: ${userError.message}`);
+    }
+    enterpriseIdentityCreated = true;
+
+    const { error: profileError } = await adminClient.from("profiles").insert({
+      user_id: invitedUserId,
+      full_name: `${firstName} ${lastName}`,
+      email,
+      organization_id: organizationId,
+      site_id: siteId,
+      person_id: person.id,
+      enterprise_user_id: invitedUserId,
+    });
+    if (profileError) {
+      throw new Error(`Unable to create profile: ${profileError.message}`);
+    }
+
+    const { error: roleError } = await adminClient.from("role_assignments").insert({
+      user_id: invitedUserId,
+      role_key: roleValue,
+      organization_id: organizationId,
+      site_id: siteId,
+      status: "active",
+    });
+    if (roleError) {
+      throw new Error(`Unable to assign role: ${roleError.message}`);
+    }
+
+    return { error: null, invited: true };
+  } catch (error) {
+    if (enterpriseIdentityCreated && invitedUserId && adminClient) {
+      await adminClient.auth.admin.deleteUser(invitedUserId);
+    }
+
+    if (personId && adminClient) {
+      await adminClient.from("people").delete().eq("id", personId);
+    }
+
+    return { error: getErrorMessage(error), invited: false };
+  }
 }
 
 function getSupportedLocales(formData: FormData) {
