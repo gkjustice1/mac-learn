@@ -17,11 +17,11 @@ select ok(not has_table_privilege('service_role', 'public.profiles', 'update'), 
 select ok(not has_table_privilege('service_role', 'public.profiles', 'delete'), 'service_role cannot delete profiles directly');
 
 select ok(has_function_privilege('service_role', 'public.mac_create_invited_enterprise_identity(uuid,text,text,text,uuid,uuid)', 'execute'), 'service_role can execute invitation creation');
-select ok(has_function_privilege('service_role', 'public.mac_cleanup_invited_enterprise_identity(uuid,uuid)', 'execute'), 'service_role can execute invitation cleanup');
+select ok(has_function_privilege('service_role', 'public.mac_cleanup_invited_enterprise_identity(uuid)', 'execute'), 'service_role can execute invitation cleanup');
 select ok(not has_function_privilege('anon', 'public.mac_create_invited_enterprise_identity(uuid,text,text,text,uuid,uuid)', 'execute'), 'anon cannot create invitation identities');
-select ok(not has_function_privilege('anon', 'public.mac_cleanup_invited_enterprise_identity(uuid,uuid)', 'execute'), 'anon cannot clean up invitation identities');
+select ok(not has_function_privilege('anon', 'public.mac_cleanup_invited_enterprise_identity(uuid)', 'execute'), 'anon cannot clean up invitation identities');
 select ok(not has_function_privilege('authenticated', 'public.mac_create_invited_enterprise_identity(uuid,text,text,text,uuid,uuid)', 'execute'), 'authenticated cannot create invitation identities');
-select ok(not has_function_privilege('authenticated', 'public.mac_cleanup_invited_enterprise_identity(uuid,uuid)', 'execute'), 'authenticated cannot clean up invitation identities');
+select ok(not has_function_privilege('authenticated', 'public.mac_cleanup_invited_enterprise_identity(uuid)', 'execute'), 'authenticated cannot clean up invitation identities');
 
 insert into public.organizations (id, name, slug)
 values ('5a000000-0000-4000-8000-000000000001', 'Invitation Test', 'invitation-test');
@@ -59,7 +59,6 @@ select ok(
 set local role service_role;
 select is(
   public.mac_cleanup_invited_enterprise_identity(
-    '4a000000-0000-4000-8000-000000000001',
     '7a000000-0000-4000-8000-000000000001'
   ),
   false,
@@ -67,8 +66,7 @@ select is(
 );
 select is(
   public.mac_cleanup_invited_enterprise_identity(
-    '4a000000-0000-4000-8000-000000000001',
-    (select id from public.people where primary_email = 'service-role-invite@example.test')
+    '4a000000-0000-4000-8000-000000000001'
   ),
   true,
   'cleanup removes only the matching invited identity'
