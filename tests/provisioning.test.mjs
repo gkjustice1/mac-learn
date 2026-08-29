@@ -44,6 +44,8 @@ test("platform administration exposes an authorized invitation form", () => {
   assert.match(accessRolesPage, /href="\/platform\/invitations\/new"/);
   assert.match(invitationPage, /await requirePlatformAdmin\(\)/);
   assert.match(invitationForm, /useActionState\(provisionInvitation/);
+  assert.match(invitationForm, /searchRoleAssignmentOptions/);
+  assert.match(invitationForm, /organizationId/);
   assert.match(invitationForm, /name="first_name"/);
   assert.match(invitationForm, /name="last_name"/);
   assert.match(invitationForm, /name="email"/);
