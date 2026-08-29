@@ -1,26 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { provisionInvitation } from "@/app/actions";
-
-type OrganizationOption = {
-  id: string;
-  name: string;
-};
-
-type SiteOption = {
-  id: string;
-  name: string;
-  organizationId: string;
-};
-
-type InvitationFormProps = {
-  organizations: OrganizationOption[];
-  sites: SiteOption[];
-};
+import {
+  provisionInvitation,
+  type RoleAssignmentSearchKind,
+  type RoleAssignmentSearchOption,
+  searchRoleAssignmentOptions,
+} from "@/app/actions";
 
 const ROLE_OPTIONS = [
   { value: "student", label: "Student" },
@@ -44,10 +33,121 @@ function SubmitButton() {
   );
 }
 
-export function InvitationForm({
-  organizations,
-  sites,
-}: InvitationFormProps) {
+type ScopeSearchFieldProps = {
+  disabled?: boolean;
+  kind: Extract<RoleAssignmentSearchKind, "organization" | "site">;
+  label: string;
+  name: string;
+  onChange: (value: string) => void;
+  organizationId?: string | null;
+  placeholder: string;
+  required?: boolean;
+  value: string;
+};
+
+function ScopeSearchField({
+  disabled = false,
+  kind,
+  label,
+  name,
+  onChange,
+  organizationId = null,
+  placeholder,
+  required = false,
+  value,
+}: ScopeSearchFieldProps) {
+  const [query, setQuery] = useState("");
+  const [options, setOptions] = useState<RoleAssignmentSearchOption[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (disabled || query.trim().length < 2) {
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = window.setTimeout(async () => {
+      setLoading(true);
+      const result = await searchRoleAssignmentOptions(
+        kind,
+        query,
+        organizationId
+      );
+
+      if (!cancelled) {
+        setOptions(result.options);
+        setError(result.error);
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [disabled, kind, organizationId, query]);
+
+  return (
+    <div className="grid gap-2">
+      <label
+        htmlFor={`${name}_search`}
+        className="text-sm font-semibold text-slate-800"
+      >
+        {label}
+      </label>
+      <input
+        id={`${name}_search`}
+        type="search"
+        value={query}
+        disabled={disabled}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          onChange("");
+
+          if (event.target.value.trim().length < 2) {
+            setOptions([]);
+            setError(null);
+            setLoading(false);
+          }
+        }}
+        placeholder={placeholder}
+        autoComplete="off"
+        className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-normal text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+      />
+      <select
+        id={name}
+        name={name}
+        value={value}
+        required={required}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-normal text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+      >
+        <option value="">
+          {disabled ? "Select required scope first" : "Select from search results"}
+        </option>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <p className="text-xs leading-5 text-slate-500">
+        {loading
+          ? "Searching..."
+          : "Enter at least two characters. Results are limited to 20."}
+      </p>
+      {error ? (
+        <p role="alert" className="text-xs text-red-700">
+          Search failed: {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export function InvitationForm() {
   const [state, formAction] = useActionState(provisionInvitation, {
     error: null,
     invited: false,
@@ -56,9 +156,6 @@ export function InvitationForm({
   const [roleKey, setRoleKey] = useState("");
   const [siteId, setSiteId] = useState("");
 
-  const availableSites = sites.filter(
-    (site) => site.organizationId === organizationId
-  );
   const isOrganizationScoped = roleKey === "academic_lead";
 
   if (state.invited) {
@@ -128,26 +225,18 @@ export function InvitationForm({
         />
       </label>
 
-      <label className="grid gap-2 text-sm font-semibold text-slate-800">
-        Organization
-        <select
-          name="organization_id"
-          required
-          value={organizationId}
-          onChange={(event) => {
-            setOrganizationId(event.target.value);
-            setSiteId("");
-          }}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal text-slate-950"
-        >
-          <option value="">Select an active organization</option>
-          {organizations.map((organization) => (
-            <option key={organization.id} value={organization.id}>
-              {organization.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ScopeSearchField
+        kind="organization"
+        label="Organization"
+        name="organization_id"
+        value={organizationId}
+        required
+        placeholder="Search active organizations by name or slug"
+        onChange={(value) => {
+          setOrganizationId(value);
+          setSiteId("");
+        }}
+      />
 
       <label className="grid gap-2 text-sm font-semibold text-slate-800">
         Role
@@ -174,27 +263,16 @@ export function InvitationForm({
         </select>
       </label>
 
-      <label className="grid gap-2 text-sm font-semibold text-slate-800">
-        Site <span className="font-normal text-slate-500">(optional)</span>
-        <select
-          name="site_id"
-          value={siteId}
-          disabled={!organizationId || isOrganizationScoped}
-          onChange={(event) => setSiteId(event.target.value)}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-        >
-          <option value="">
-            {isOrganizationScoped
-              ? "Academic Lead is organization-scoped"
-              : "No site restriction"}
-          </option>
-          {availableSites.map((site) => (
-            <option key={site.id} value={site.id}>
-              {site.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <ScopeSearchField
+        kind="site"
+        label="Site (optional)"
+        name="site_id"
+        value={siteId}
+        organizationId={organizationId}
+        disabled={!organizationId || isOrganizationScoped}
+        placeholder="Search active sites by name or code"
+        onChange={setSiteId}
+      />
 
       <aside className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-950">
         The recipient will remain in invited status until password creation
