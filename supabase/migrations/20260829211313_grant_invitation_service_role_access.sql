@@ -45,22 +45,27 @@ $$;
 create or replace function public.mac_cleanup_invited_enterprise_identity(
   p_user_id uuid
 )
-returns boolean
+returns text
 language plpgsql
 security definer
 set search_path = pg_catalog, public
 as $$
 declare
   cleanup_person_id uuid;
+  cleanup_account_status text;
 begin
-  select enterprise_user.person_id
-  into cleanup_person_id
+  select enterprise_user.person_id, enterprise_user.account_status
+  into cleanup_person_id, cleanup_account_status
   from public.users as enterprise_user
   where enterprise_user.id = p_user_id
-    and enterprise_user.account_status = 'invited';
+  for update;
 
-  if cleanup_person_id is null then
-    return false;
+  if not found then
+    return 'missing';
+  end if;
+
+  if cleanup_account_status <> 'invited' or cleanup_person_id is null then
+    return 'not_invited';
   end if;
 
   delete from public.profiles
@@ -74,7 +79,7 @@ begin
     and account_status = 'invited';
 
   delete from public.people where id = cleanup_person_id;
-  return true;
+  return 'cleaned';
 end;
 $$;
 
