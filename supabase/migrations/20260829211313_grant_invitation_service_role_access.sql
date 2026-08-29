@@ -68,6 +68,21 @@ begin
     return 'not_invited';
   end if;
 
+  delete from public.role_assignment_events as assignment_event
+  where assignment_event.assignment_id in (
+      select assignment.id
+      from public.role_assignments as assignment
+      where assignment.user_id = p_user_id
+    )
+    or assignment_event.related_assignment_id in (
+      select assignment.id
+      from public.role_assignments as assignment
+      where assignment.user_id = p_user_id
+    );
+
+  delete from public.role_assignments
+  where user_id = p_user_id;
+
   delete from public.profiles
   where user_id = p_user_id
     and person_id = cleanup_person_id
