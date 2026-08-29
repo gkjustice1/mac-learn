@@ -38,7 +38,7 @@ export async function updatePassword(formData: FormData) {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (identityError || !identity) {
+  if (identityError) {
     redirect("/update-password?error=identity_lookup_failed");
   }
 
@@ -50,7 +50,7 @@ export async function updatePassword(formData: FormData) {
     redirect("/update-password?error=password_update_failed");
   }
 
-  if (identity.account_status === "invited") {
+  if (identity?.account_status === "invited") {
     const { data: activated, error: activationError } = await supabase.rpc(
       "mac_activate_invited_enterprise_user"
     );
