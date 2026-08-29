@@ -4,6 +4,10 @@ import test from "node:test";
 
 const workspace = await readFile("src/app/tutor/page.tsx", "utf8");
 const resolver = await readFile("src/lib/auth/workspace.ts", "utf8");
+const profileMigration = await readFile(
+  "supabase/migrations/20260829221604_link_tutor_profiles_to_assignments.sql",
+  "utf8"
+);
 
 test("Tutor assignments route to the Tutor workspace", () => {
   assert.match(resolver, /case "tutor":[\s\S]*return "\/tutor"/);
@@ -40,4 +44,16 @@ test("Tutor workspace exposes all requested operational sections", () => {
   ]) {
     assert.match(workspace, new RegExp(section));
   }
+});
+
+test("Tutor profile backfill handles users with multiple active scopes", () => {
+  assert.match(profileMigration, /select distinct on \(profile\.id\)/);
+  assert.match(profileMigration, /order by[\s\S]*profile\.id/);
+});
+
+test("Tutor scope grants organization and site name visibility", () => {
+  assert.match(profileMigration, /"Tutors view assigned organizations"/);
+  assert.match(profileMigration, /mac_has_role\('tutor', id, null\)/);
+  assert.match(profileMigration, /"Tutors view assigned sites"/);
+  assert.match(profileMigration, /mac_has_role\('tutor', organization_id, id\)/);
 });
