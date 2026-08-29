@@ -53,7 +53,7 @@ test("Tutor profile backfill handles users with multiple active scopes", () => {
 
 test("Tutor scope grants organization and site name visibility", () => {
   assert.match(profileMigration, /"Tutors view assigned organizations"/);
-  assert.match(profileMigration, /mac_has_role\('tutor', id, null\)/);
+  assert.match(profileMigration, /mac_tutor_can_view_organization\(id\)/);
   assert.match(profileMigration, /"Tutors view assigned sites"/);
   assert.match(profileMigration, /mac_has_role\('tutor', organization_id, id\)/);
 });
