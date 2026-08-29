@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(7);
+select plan(9);
 
 select has_function(
   'public',
@@ -20,7 +20,9 @@ select ok(
 );
 
 insert into public.organizations (id, name, slug)
-values ('91000000-0000-4000-8000-000000000001', 'Tutor Workspace Test', 'tutor-workspace-test');
+values
+  ('91000000-0000-4000-8000-000000000001', 'Tutor Workspace Test', 'tutor-workspace-test'),
+  ('91000000-0000-4000-8000-000000000002', 'Tutor Workspace Alternate', 'tutor-workspace-alternate');
 insert into public.sites (id, organization_id, name, code)
 values (
   '92000000-0000-4000-8000-000000000001',
@@ -64,8 +66,9 @@ insert into public.profiles (
   '93000000-0000-4000-8000-000000000001'
 );
 insert into public.role_assignments (
-  user_id, role_key, organization_id, site_id, status
+  id, user_id, role_key, organization_id, site_id, status
 ) values (
+  '96000000-0000-4000-8000-000000000001',
   '93000000-0000-4000-8000-000000000001',
   'tutor',
   '91000000-0000-4000-8000-000000000001',
@@ -116,6 +119,55 @@ select ok(
       and site_id is null
   ),
   'Tutor assignment scope changes synchronize the linked tutor profile'
+);
+
+insert into public.staff (id, organization_id, person_id, staff_type)
+values (
+  '97000000-0000-4000-8000-000000000001',
+  '91000000-0000-4000-8000-000000000001',
+  '94000000-0000-4000-8000-000000000001',
+  'tutor'
+);
+
+update public.tutor_profiles
+set staff_id = '97000000-0000-4000-8000-000000000001'
+where user_id = '95000000-0000-4000-8000-000000000001';
+
+insert into public.role_assignments (
+  id, user_id, role_key, organization_id, site_id, status
+) values (
+  '96000000-0000-4000-8000-000000000002',
+  '93000000-0000-4000-8000-000000000001',
+  'tutor',
+  '91000000-0000-4000-8000-000000000002',
+  null,
+  'active'
+);
+
+select ok(
+  exists (
+    select 1
+    from public.tutor_profiles
+    where user_id = '95000000-0000-4000-8000-000000000001'
+      and organization_id = '91000000-0000-4000-8000-000000000002'
+      and staff_id is null
+  ),
+  'changing the selected Tutor organization clears an incompatible staff link'
+);
+
+update public.role_assignments
+set status = 'revoked'
+where id = '96000000-0000-4000-8000-000000000002';
+
+select ok(
+  exists (
+    select 1
+    from public.tutor_profiles
+    where user_id = '95000000-0000-4000-8000-000000000001'
+      and organization_id = '91000000-0000-4000-8000-000000000001'
+      and site_id is null
+  ),
+  'revoking the selected Tutor assignment falls back to another effective assignment'
 );
 
 select * from finish();
