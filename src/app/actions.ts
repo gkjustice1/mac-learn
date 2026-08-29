@@ -130,7 +130,6 @@ export async function provisionInvitation(
 ): Promise<ProvisionInvitationActionState> {
   let invitedUserId: string | null = null;
   let personId: string | null = null;
-  let enterpriseIdentityCreated = false;
   let adminClient: ReturnType<typeof createAdminClient> | null = null;
 
   try {
@@ -151,6 +150,11 @@ export async function provisionInvitation(
 
     await requireOrganizationAdmin(organizationId);
     const supabase = await createClient();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+
+    if (!appUrl) {
+      throw new Error("Invitations are unavailable until the application URL is configured.");
+    }
 
     const { data: organization, error: organizationError } = await supabase
       .from("organizations")
@@ -183,6 +187,7 @@ export async function provisionInvitation(
     adminClient = createAdminClient();
     const { data: invite, error: inviteError } = await adminClient.auth.admin
       .inviteUserByEmail(email, {
+        redirectTo: `${appUrl}/auth/callback`,
         data: { first_name: firstName, last_name: lastName },
       });
 
@@ -215,7 +220,6 @@ export async function provisionInvitation(
     if (userError) {
       throw new Error(`Unable to create enterprise identity: ${userError.message}`);
     }
-    enterpriseIdentityCreated = true;
 
     const { error: profileError } = await adminClient.from("profiles").insert({
       user_id: invitedUserId,
@@ -230,7 +234,7 @@ export async function provisionInvitation(
       throw new Error(`Unable to create profile: ${profileError.message}`);
     }
 
-    const { error: roleError } = await adminClient.from("role_assignments").insert({
+    const { error: roleError } = await supabase.from("role_assignments").insert({
       user_id: invitedUserId,
       role_key: roleValue,
       organization_id: organizationId,
@@ -243,7 +247,7 @@ export async function provisionInvitation(
 
     return { error: null, invited: true };
   } catch (error) {
-    if (enterpriseIdentityCreated && invitedUserId && adminClient) {
+    if (invitedUserId && adminClient) {
       await adminClient.auth.admin.deleteUser(invitedUserId);
     }
 

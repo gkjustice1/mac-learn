@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(5);
+select plan(7);
 
 insert into auth.users (id, email) values
   ('1a000000-0000-4000-8000-000000000001', 'organization-admin@example.test'),
@@ -52,6 +52,30 @@ select ok(
   'an invited user cannot use an active role assignment before activation'
 );
 reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"1a000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select lives_ok(
+  $$insert into public.role_assignments (user_id, organization_id, role_key, status)
+    values ('1a000000-0000-4000-8000-000000000002', '2a000000-0000-4000-8000-000000000001', 'guardian', 'inactive')$$,
+  'an organization administrator can create an invited participant assignment'
+);
+reset role;
+
+select is(
+  (
+    select actor_user_id
+    from public.role_assignment_events
+    where assignment_id = (
+      select id
+      from public.role_assignments
+      where user_id = '1a000000-0000-4000-8000-000000000002'
+        and role_key = 'guardian'
+    )
+  ),
+  '1a000000-0000-4000-8000-000000000001'::uuid,
+  'the role-assignment audit records the organization administrator actor'
+);
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"1a000000-0000-4000-8000-000000000001","role":"authenticated"}', true);

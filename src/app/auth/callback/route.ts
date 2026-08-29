@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const tokenHash = requestUrl.searchParams.get("token_hash");
   const type = requestUrl.searchParams.get("type") as EmailOtpType | null;
 
-  if (!tokenHash || type !== "recovery") {
+  if (!tokenHash || (type !== "recovery" && type !== "invite")) {
     return NextResponse.redirect(
       new URL("/login?error=recovery_failed", requestUrl.origin)
     );
@@ -28,7 +28,20 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.redirect(
-    new URL("/update-password", requestUrl.origin)
-  );
+  if (type === "invite") {
+    const { data: activated, error: activationError } = await supabase.rpc(
+      "mac_activate_invited_enterprise_user"
+    );
+
+    if (activationError || !activated) {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(
+        new URL("/login?error=activation_failed", requestUrl.origin)
+      );
+    }
+
+    return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
+  }
+
+  return NextResponse.redirect(new URL("/update-password", requestUrl.origin));
 }
