@@ -49,11 +49,24 @@ select lives_ok(
 );
 reset role;
 
+insert into public.role_assignments (
+  id, user_id, role_key, organization_id, site_id, status
+) values (
+  '8a000000-0000-4000-8000-000000000001',
+  '4a000000-0000-4000-8000-000000000001',
+  'tutor',
+  '5a000000-0000-4000-8000-000000000001',
+  '6a000000-0000-4000-8000-000000000001',
+  'active'
+);
+
 select ok(
   exists (select 1 from public.people where primary_email = 'service-role-invite@example.test')
   and exists (select 1 from public.users where id = '4a000000-0000-4000-8000-000000000001' and account_status = 'invited')
-  and exists (select 1 from public.profiles where user_id = '4a000000-0000-4000-8000-000000000001'),
-  'invitation creation writes all three linked identity records'
+  and exists (select 1 from public.profiles where user_id = '4a000000-0000-4000-8000-000000000001')
+  and exists (select 1 from public.role_assignments where id = '8a000000-0000-4000-8000-000000000001')
+  and exists (select 1 from public.role_assignment_events where assignment_id = '8a000000-0000-4000-8000-000000000001'),
+  'invitation creation writes linked identity, assignment, and audit records'
 );
 
 set local role service_role;
@@ -83,7 +96,9 @@ reset role;
 select ok(
   exists (select 1 from public.people where primary_email = 'service-role-invite@example.test')
   and exists (select 1 from public.users where id = '4a000000-0000-4000-8000-000000000001' and account_status = 'active')
-  and exists (select 1 from public.profiles where user_id = '4a000000-0000-4000-8000-000000000001'),
+  and exists (select 1 from public.profiles where user_id = '4a000000-0000-4000-8000-000000000001')
+  and exists (select 1 from public.role_assignments where id = '8a000000-0000-4000-8000-000000000001')
+  and exists (select 1 from public.role_assignment_events where assignment_id = '8a000000-0000-4000-8000-000000000001'),
   'refused cleanup preserves the active linked identity'
 );
 
@@ -104,8 +119,10 @@ reset role;
 select ok(
   not exists (select 1 from public.people where primary_email = 'service-role-invite@example.test')
   and not exists (select 1 from public.users where id = '4a000000-0000-4000-8000-000000000001')
-  and not exists (select 1 from public.profiles where user_id = '4a000000-0000-4000-8000-000000000001'),
-  'cleanup removes all three linked identity records'
+  and not exists (select 1 from public.profiles where user_id = '4a000000-0000-4000-8000-000000000001')
+  and not exists (select 1 from public.role_assignments where id = '8a000000-0000-4000-8000-000000000001')
+  and not exists (select 1 from public.role_assignment_events where assignment_id = '8a000000-0000-4000-8000-000000000001'),
+  'cleanup removes linked identity, assignment, and audit records'
 );
 
 select * from finish();
