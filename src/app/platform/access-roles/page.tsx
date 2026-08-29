@@ -163,6 +163,13 @@ export default async function PlatformAccessRolesPage({
 
           <div className="flex flex-wrap items-center gap-3">
             <Link
+              href="/platform/invitations/new"
+              className="rounded-xl bg-lime-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-lime-700"
+            >
+              Invite user
+            </Link>
+
+            <Link
               href="/platform/access-roles/new"
               className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
             >
