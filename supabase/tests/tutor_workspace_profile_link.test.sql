@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(5);
+select plan(7);
 
 select has_function(
   'public',
@@ -73,6 +73,24 @@ insert into public.role_assignments (
   'active'
 );
 
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"93000000-0000-4000-8000-000000000001","role":"authenticated"}',
+  true
+);
+select is(
+  (select name from public.organizations where id = '91000000-0000-4000-8000-000000000001'),
+  'Tutor Workspace Test',
+  'a Tutor can read the assigned organization name'
+);
+select is(
+  (select name from public.sites where id = '92000000-0000-4000-8000-000000000001'),
+  'Tutor Test Site',
+  'a Tutor can read the assigned site name'
+);
+reset role;
+
 select ok(
   exists (
     select 1
@@ -102,4 +120,3 @@ select ok(
 
 select * from finish();
 rollback;
-
