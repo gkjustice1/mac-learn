@@ -37,15 +37,36 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
- const isPublicAuthRoute =
-  pathname === "/login" ||
-  pathname === "/forgot-password" ||
-  pathname === "/auth/callback";
+  const isPublicAuthRoute =
+    pathname === "/login" ||
+    pathname === "/forgot-password" ||
+    pathname === "/auth/callback";
+
   if (!user && !isPublicAuthRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
 
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (user) {
+    const { data: identity } = await supabase
+      .from("users")
+      .select("account_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (
+      identity?.account_status === "invited" &&
+      pathname !== "/update-password" &&
+      pathname !== "/auth/callback"
+    ) {
+      const passwordSetupUrl = request.nextUrl.clone();
+      passwordSetupUrl.pathname = "/update-password";
+      passwordSetupUrl.search = "";
+
+      return NextResponse.redirect(passwordSetupUrl);
+    }
   }
 
   if (user && pathname === "/login") {

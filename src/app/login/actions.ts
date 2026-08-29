@@ -19,13 +19,26 @@ export async function login(formData: FormData) {
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
     redirect("/login?error=invalid_credentials");
+  }
+
+  // A provisioned enterprise identity becomes active only after the invitee
+  // has completed a successful authentication.
+  if (data.user) {
+    const { error: activationError } = await supabase.rpc(
+      "mac_activate_invited_enterprise_user"
+    );
+
+    if (activationError) {
+      await supabase.auth.signOut();
+      redirect("/login?error=activation_failed");
+    }
   }
 
   redirect("/dashboard");

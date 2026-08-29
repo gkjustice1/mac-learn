@@ -16,6 +16,8 @@ export default async function LoginPage({
       ? "Please enter both your email and password."
       : error === "invalid_credentials"
         ? "The email or password you entered is incorrect."
+        : error === "activation_failed"
+          ? "Your account could not be activated. Please contact MAC Learn support."
         : null;
   return (
     <main
