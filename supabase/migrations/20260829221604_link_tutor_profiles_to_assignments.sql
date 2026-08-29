@@ -6,8 +6,27 @@ language plpgsql
 security definer
 set search_path = pg_catalog, public
 as $$
+declare
+  target_user_id uuid;
+  selected_organization_id uuid;
+  selected_site_id uuid;
 begin
-  if new.role_key = 'tutor' and new.status = 'active' then
+  target_user_id := case when tg_op = 'DELETE' then old.user_id else new.user_id end;
+
+  select assignment.organization_id, assignment.site_id
+  into selected_organization_id, selected_site_id
+  from public.role_assignments as assignment
+  where assignment.user_id = target_user_id
+    and assignment.role_key = 'tutor'
+    and assignment.status = 'active'
+    and assignment.valid_from <= now()
+    and (assignment.valid_until is null or assignment.valid_until > now())
+  order by
+    assignment.site_id nulls first,
+    assignment.created_at desc
+  limit 1;
+
+  if found then
     insert into public.tutor_profiles (
       user_id,
       organization_id,
@@ -16,15 +35,24 @@ begin
     )
     select
       profile.id,
-      new.organization_id,
-      new.site_id,
+      selected_organization_id,
+      selected_site_id,
       profile.person_id
     from public.profiles as profile
-    where profile.user_id = new.user_id
+    where profile.user_id = target_user_id
     on conflict (user_id) do update
     set organization_id = excluded.organization_id,
         site_id = excluded.site_id,
-        person_id = excluded.person_id;
+        person_id = excluded.person_id,
+        staff_id = case
+          when tutor_profiles.organization_id is distinct from excluded.organization_id
+            then null
+          else tutor_profiles.staff_id
+        end;
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
   end if;
 
   return new;
@@ -39,6 +67,15 @@ on public.role_assignments;
 
 create trigger role_assignments_sync_tutor_profile
 after insert or update of role_key, status, organization_id, site_id
+on public.role_assignments
+for each row
+execute function public.mac_sync_tutor_profile_from_assignment();
+
+drop trigger if exists role_assignments_delete_sync_tutor_profile
+on public.role_assignments;
+
+create trigger role_assignments_delete_sync_tutor_profile
+after delete
 on public.role_assignments
 for each row
 execute function public.mac_sync_tutor_profile_from_assignment();
@@ -213,4 +250,9 @@ order by
 on conflict (user_id) do update
 set organization_id = excluded.organization_id,
     site_id = excluded.site_id,
-    person_id = excluded.person_id;
+    person_id = excluded.person_id,
+    staff_id = case
+      when tutor_profiles.organization_id is distinct from excluded.organization_id
+        then null
+      else tutor_profiles.staff_id
+    end;
