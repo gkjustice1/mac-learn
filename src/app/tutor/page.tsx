@@ -132,7 +132,7 @@ export default async function TutorPage() {
   const availability = availabilityResult.data ?? [];
   const notes = notesResult.data ?? [];
   const reports = reportsResult.data ?? [];
-  const upcomingSessions = sessions.filter((session) =>
+  const openSessions = sessions.filter((session) =>
     ["pending", "confirmed"].includes(session.status)
   );
 
@@ -210,7 +210,7 @@ export default async function TutorPage() {
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: "Assigned students", value: students.length },
-            { label: "Upcoming sessions", value: upcomingSessions.length },
+            { label: "Open sessions", value: openSessions.length },
             { label: "Availability windows", value: availability.length },
             { label: "Progress reports", value: reports.length },
           ].map((metric) => (
