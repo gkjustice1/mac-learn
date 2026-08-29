@@ -41,12 +41,9 @@ test("password creation succeeds before an invited enterprise identity is activa
   assert.match(updatePasswordSource, /redirect\("\/dashboard"\)/);
 });
 
-test("legacy auth users without enterprise identities can still recover passwords", () => {
-  assert.match(updatePasswordSource, /if \(identityError\)/);
-  assert.doesNotMatch(
-    updatePasswordSource,
-    /if \(identityError \|\| !identity\)/
-  );
+test("enterprise lookup absence or errors do not block legacy password recovery", () => {
+  assert.match(updatePasswordSource, /const \{ data: identity \} = await supabase/);
+  assert.doesNotMatch(updatePasswordSource, /identityError/);
   assert.match(
     updatePasswordSource,
     /if \(identity\?\.account_status === "invited"\)/

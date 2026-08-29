@@ -32,15 +32,13 @@ export async function updatePassword(formData: FormData) {
     redirect("/login?error=recovery_failed");
   }
 
-  const { data: identity, error: identityError } = await supabase
+  // The enterprise identity bridge is optional for legacy Auth users. Only a
+  // positively identified invited row requires activation after password setup.
+  const { data: identity } = await supabase
     .from("users")
     .select("account_status")
     .eq("id", user.id)
     .maybeSingle();
-
-  if (identityError) {
-    redirect("/update-password?error=identity_lookup_failed");
-  }
 
   const { error } = await supabase.auth.updateUser({
     password,
