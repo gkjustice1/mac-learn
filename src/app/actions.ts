@@ -196,43 +196,23 @@ export async function provisionInvitation(
     }
 
     invitedUserId = invite.user.id;
-    const { data: person, error: personError } = await adminClient
-      .from("people")
-      .insert({
-        first_name: firstName,
-        last_name: lastName,
-        primary_email: email,
-      })
-      .select("id")
-      .single();
-    if (personError || !person) {
+    const { data: createdPersonId, error: identityError } = await adminClient.rpc(
+      "mac_create_invited_enterprise_identity",
+      {
+        p_user_id: invitedUserId,
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_email: email,
+        p_organization_id: organizationId,
+        p_site_id: siteId,
+      }
+    );
+    if (identityError || !createdPersonId) {
       throw new Error(
-        `Unable to create identity: ${personError?.message ?? "unknown error"}`
+        `Unable to create identity: ${identityError?.message ?? "unknown error"}`
       );
     }
-    personId = person.id;
-
-    const { error: userError } = await adminClient.from("users").insert({
-      id: invitedUserId,
-      person_id: person.id,
-      account_status: "invited",
-    });
-    if (userError) {
-      throw new Error(`Unable to create enterprise identity: ${userError.message}`);
-    }
-
-    const { error: profileError } = await adminClient.from("profiles").insert({
-      user_id: invitedUserId,
-      full_name: `${firstName} ${lastName}`,
-      email,
-      organization_id: organizationId,
-      site_id: siteId,
-      person_id: person.id,
-      enterprise_user_id: invitedUserId,
-    });
-    if (profileError) {
-      throw new Error(`Unable to create profile: ${profileError.message}`);
-    }
+    personId = createdPersonId;
 
     const { error: roleError } = await supabase.from("role_assignments").insert({
       user_id: invitedUserId,
@@ -247,12 +227,15 @@ export async function provisionInvitation(
 
     return { error: null, invited: true };
   } catch (error) {
-    if (invitedUserId && adminClient) {
-      await adminClient.auth.admin.deleteUser(invitedUserId);
+    if (invitedUserId && personId && adminClient) {
+      await adminClient.rpc("mac_cleanup_invited_enterprise_identity", {
+        p_user_id: invitedUserId,
+        p_person_id: personId,
+      });
     }
 
-    if (personId && adminClient) {
-      await adminClient.from("people").delete().eq("id", personId);
+    if (invitedUserId && adminClient) {
+      await adminClient.auth.admin.deleteUser(invitedUserId);
     }
 
     return { error: getErrorMessage(error), invited: false };
