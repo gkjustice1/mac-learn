@@ -15,11 +15,11 @@ const DAYS = [
   "Saturday",
 ] as const;
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
-    timeZone: "America/New_York",
+    timeZone,
   }).format(new Date(value));
 }
 
@@ -64,6 +64,7 @@ export default async function TutorPage() {
 
   const [
     organizationResult,
+    organizationConfigurationResult,
     siteResult,
     studentsResult,
     sessionsResult,
@@ -76,10 +77,15 @@ export default async function TutorPage() {
       .select("name")
       .eq("id", assignment.organizationId)
       .maybeSingle(),
+    supabase
+      .from("organization_configurations")
+      .select("default_timezone")
+      .eq("organization_id", assignment.organizationId)
+      .maybeSingle(),
     assignment.siteId
       ? supabase
           .from("sites")
-          .select("name")
+          .select("name, timezone")
           .eq("id", assignment.siteId)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -115,6 +121,7 @@ export default async function TutorPage() {
 
   const failedResult = [
     organizationResult,
+    organizationConfigurationResult,
     siteResult,
     studentsResult,
     sessionsResult,
@@ -132,6 +139,10 @@ export default async function TutorPage() {
   const availability = availabilityResult.data ?? [];
   const notes = notesResult.data ?? [];
   const reports = reportsResult.data ?? [];
+  const workspaceTimeZone =
+    siteResult.data?.timezone ??
+    organizationConfigurationResult.data?.default_timezone ??
+    "UTC";
   const openSessions = sessions.filter((session) =>
     ["pending", "confirmed"].includes(session.status)
   );
@@ -286,7 +297,9 @@ export default async function TutorPage() {
                         <td className="px-4 py-4">
                           {subject?.name ?? "General tutoring"}
                         </td>
-                        <td className="px-4 py-4">{formatDateTime(session.start_time)}</td>
+                        <td className="px-4 py-4">
+                          {formatDateTime(session.start_time, workspaceTimeZone)}
+                        </td>
                         <td className="px-4 py-4 capitalize">
                           {session.status.replaceAll("_", " ")}
                         </td>
@@ -349,7 +362,7 @@ export default async function TutorPage() {
                       {note.attendance_status} attendance
                     </h3>
                     <span className="text-xs text-slate-500">
-                      {formatDateTime(note.created_at)}
+                      {formatDateTime(note.created_at, workspaceTimeZone)}
                     </span>
                   </div>
                   <p className="mt-3 text-sm leading-6 text-slate-700">
