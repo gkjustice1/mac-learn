@@ -66,3 +66,12 @@ test("invitation form only exposes roles supported by server provisioning", () =
     /platform_admin|platform_support|organization_admin|site_admin/
   );
 });
+
+test("invitation form preserves identity fields after a failed submission", () => {
+  assert.match(invitationForm, /const \[firstName, setFirstName\] = useState\(""\)/);
+  assert.match(invitationForm, /const \[lastName, setLastName\] = useState\(""\)/);
+  assert.match(invitationForm, /const \[email, setEmail\] = useState\(""\)/);
+  assert.match(invitationForm, /value={firstName}/);
+  assert.match(invitationForm, /value={lastName}/);
+  assert.match(invitationForm, /value={email}/);
+});
