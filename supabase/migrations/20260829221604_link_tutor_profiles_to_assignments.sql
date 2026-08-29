@@ -43,13 +43,42 @@ on public.role_assignments
 for each row
 execute function public.mac_sync_tutor_profile_from_assignment();
 
+create or replace function public.mac_tutor_can_view_organization(
+  requested_organization_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select exists (
+    select 1
+    from public.role_assignments as assignment
+    join public.users as enterprise_user
+      on enterprise_user.id = assignment.user_id
+    where assignment.user_id = (select auth.uid())
+      and assignment.role_key = 'tutor'
+      and assignment.organization_id = requested_organization_id
+      and assignment.status = 'active'
+      and assignment.valid_from <= now()
+      and (assignment.valid_until is null or assignment.valid_until > now())
+      and enterprise_user.account_status = 'active'
+  );
+$$;
+
+revoke all on function public.mac_tutor_can_view_organization(uuid)
+from public, anon;
+grant execute on function public.mac_tutor_can_view_organization(uuid)
+to authenticated;
+
 drop policy if exists "Tutors view assigned organizations"
 on public.organizations;
 create policy "Tutors view assigned organizations"
 on public.organizations
 for select
 to authenticated
-using (public.mac_has_role('tutor', id, null));
+using (public.mac_tutor_can_view_organization(id));
 
 drop policy if exists "Tutors view assigned sites"
 on public.sites;
