@@ -52,6 +52,7 @@ test("platform administration exposes an authorized invitation form", () => {
   assert.match(invitationForm, /name="organization_id"/);
   assert.match(invitationForm, /name="site_id"/);
   assert.match(invitationForm, /name="role_key"/);
+  assert.match(invitationForm, /aria-label={`\$\{label\} selection`}/);
 });
 
 test("invitation form only exposes roles supported by server provisioning", () => {
