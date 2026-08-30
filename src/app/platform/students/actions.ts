@@ -262,15 +262,28 @@ export async function enrollStudent(
     revalidatePath("/platform/tutor-operations");
     return { active: enterpriseStatus === "active", enrolled: true, error: null, guardianInvited: guardianMode === "new" };
   } catch (error) {
+    let cleanupFailure: string | null = null;
     if (invitedGuardianUserId && adminClient) {
       const { data: cleanupStatus, error: cleanupError } = await adminClient.rpc(
         "mac_cleanup_invited_enterprise_identity",
         { p_user_id: invitedGuardianUserId }
       );
-      if (!cleanupError && (cleanupStatus === "cleaned" || cleanupStatus === "missing")) {
-        await adminClient.auth.admin.deleteUser(invitedGuardianUserId);
+      if (cleanupError) {
+        cleanupFailure = `Guardian invitation cleanup failed: ${cleanupError.message}`;
+      } else if (cleanupStatus === "cleaned" || cleanupStatus === "missing") {
+        const { error: deletionError } = await adminClient.auth.admin.deleteUser(invitedGuardianUserId);
+        if (deletionError) {
+          cleanupFailure = `Guardian Auth cleanup failed for user ${invitedGuardianUserId}: ${deletionError.message}. Remove this invited Auth user before resending.`;
+        }
+      } else {
+        cleanupFailure = `Guardian invitation cleanup returned an unexpected status for user ${invitedGuardianUserId}. Verify the invited identity before resending.`;
       }
     }
-    return { active: false, enrolled: false, error: message(error), guardianInvited: false };
+    return {
+      active: false,
+      enrolled: false,
+      error: cleanupFailure ? `${message(error)} ${cleanupFailure}` : message(error),
+      guardianInvited: false,
+    };
   }
 }
