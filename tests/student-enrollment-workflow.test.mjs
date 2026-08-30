@@ -27,7 +27,7 @@ test("student enrollment validates tenant, site, and guardian scope", () => {
   assert.match(migration, /enterprise_user\.account_status in \('invited', 'active'\)/);
   assert.match(migration, /p_enterprise_status is null or p_enterprise_status not in/);
   assert.match(migration, /p_relationship_type is null[\s\S]*p_relationship_type not in \('parent_guardian', 'parent', 'guardian', 'caregiver'\)/);
-  assert.match(migration, /p_enterprise_status = 'active' and p_enrollment_start_date > current_date/);
+  assert.match(migration, /now\(\) at time zone v_site_timezone/);
   assert.match(actions, /site_id\.is\.null,site_id\.eq\.\$\{siteId\}/);
   assert.match(actions, /valid_until\.is\.null,valid_until\.gt\.\$\{now\}/);
   assert.match(actions, /role_assignments\.valid_from", now/);
@@ -48,7 +48,8 @@ test("organization and site are validated before sending a guardian invitation",
   assert.match(actions, /from\("organizations"\)[\s\S]*eq\("status", "active"\)/);
   assert.match(actions, /from\("sites"\)[\s\S]*eq\("organization_id", organizationId\)[\s\S]*eq\("status", "active"\)/);
   assert.ok(actions.indexOf("const [organizationCheck, siteCheck]") < actions.indexOf("inviteUserByEmail"));
-  assert.ok(actions.indexOf('enterpriseStatus === "active"') < actions.indexOf("inviteUserByEmail"));
+  assert.ok(actions.indexOf("businessToday") < actions.indexOf("inviteUserByEmail"));
+  assert.match(actions, /kind === "guardian" \? createAdminClient\(\) : await createClient\(\)/);
 });
 
 test("controlled fields preserve data across unsuccessful submissions", () => {
@@ -57,6 +58,7 @@ test("controlled fields preserve data across unsuccessful submissions", () => {
     assert.match(form, new RegExp(`value=\\{fields\\.${name}\\}`));
   }
   assert.match(form, /useActionState\(enrollStudent/);
+  assert.match(form, /state\.active \? " The active student is now available in Tutor operations\."/);
 });
 
 test("student enrollment is exposed only from the protected administrator page", () => {
