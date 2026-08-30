@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(19);
+select plan(20);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -73,6 +73,15 @@ select ok((select person_id is not null from public.students where first_name = 
 select is((select count(*) from public.guardians where person_id = 'd1000000-0000-4000-8000-000000000004'), 1::bigint, 'guardian participant is created');
 select is((select count(*) from public.guardian_student_relationships relationship join public.students student on student.id = relationship.student_id where student.first_name = 'Real' and relationship.educational_access), 1::bigint, 'educational guardian relationship is created');
 select is((select actor_user_id from public.student_enrollment_events limit 1), 'a1000000-0000-4000-8000-000000000001'::uuid, 'audit event records the administrator actor');
+select is(
+  (select constraint_definition.confdeltype::text
+   from pg_catalog.pg_constraint constraint_definition
+   where constraint_definition.conrelid = 'public.student_enrollment_events'::regclass
+     and constraint_definition.contype = 'f'
+     and constraint_definition.conkey = array[(select attnum from pg_catalog.pg_attribute where attrelid = 'public.student_enrollment_events'::regclass and attname = 'student_id')]::smallint[]),
+  'r',
+  'student deletion is restricted to preserve enrollment audit history'
+);
 select ok((select enterprise_status = 'active' and enrollment_start_date = current_date from public.students where first_name = 'Real'), 'status and enrollment date are preserved');
 
 set local role authenticated;
