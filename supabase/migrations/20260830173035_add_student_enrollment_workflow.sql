@@ -10,7 +10,7 @@ alter table public.students
 
 create table public.student_enrollment_events (
   id uuid primary key default gen_random_uuid(),
-  student_id uuid not null references public.students(id) on delete cascade,
+  student_id uuid not null references public.students(id) on delete restrict,
   organization_id uuid not null references public.organizations(id) on delete restrict,
   site_id uuid references public.sites(id) on delete set null,
   guardian_id uuid not null references public.guardians(id) on delete restrict,
