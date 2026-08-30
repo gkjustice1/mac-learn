@@ -154,6 +154,9 @@ export async function enrollStudent(
     if (!['active', 'inactive'].includes(enterpriseStatus)) {
       throw new Error("Enrollment status must be active or inactive.");
     }
+    if (enterpriseStatus === "active" && enrollmentStartDate > new Date().toISOString().slice(0, 10)) {
+      throw new Error("A future enrollment must remain inactive until its start date.");
+    }
     if (!['parent_guardian', 'parent', 'guardian', 'caregiver'].includes(relationshipType)) {
       throw new Error("Guardian relationship type is invalid.");
     }
