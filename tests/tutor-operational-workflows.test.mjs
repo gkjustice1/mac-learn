@@ -37,6 +37,9 @@ test("administrator and Tutor operational forms are connected to Server Actions"
   assert.match(adminActions, /mac_platform_admin_schedule_session/);
   assert.match(tutorForms, /A scheduled session is required/);
   assert.match(tutorForms, /An assigned student is required/);
+  assert.match(tutorForms, /availabilityPending/);
+  assert.match(tutorForms, /!sessions\.length \|\| notePending/);
+  assert.match(tutorForms, /!students\.length \|\| reportPending/);
   assert.match(tutorActions, /mac_current_tutor_id/);
   assert.match(tutorActions, /revalidatePath\("\/tutor"\)/);
 });
