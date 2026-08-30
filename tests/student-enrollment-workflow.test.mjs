@@ -13,6 +13,9 @@ test("student enrollment is restricted and transactionally audited", () => {
   assert.match(migration, /security definer/);
   assert.match(migration, /not public\.mac_is_organization_admin\(p_organization_id\)/);
   assert.match(migration, /insert into public\.student_enrollment_events/);
+  assert.match(migration, /create or replace function public\.mac_audit_student_enrollment_status/);
+  assert.match(migration, /after update of enterprise_status on public\.students/);
+  assert.match(migration, /'previous_enterprise_status', old\.enterprise_status/);
   assert.match(migration, /student_id uuid not null references public\.students\(id\) on delete restrict/);
   assert.match(migration, /on conflict \(organization_id, person_id\)[\s\S]*do nothing/);
   assert.match(migration, /guardian\.status = 'active'/);
