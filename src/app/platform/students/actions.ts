@@ -49,7 +49,7 @@ export async function searchEnrollmentOptions(
   await requirePlatformAdmin();
   const term = query.replace(/[,%()]/g, " ").trim().slice(0, 100);
   if (term.length < 2) return { options: [], error: null };
-  const supabase = kind === "guardian" ? createAdminClient() : await createClient();
+  const supabase = await createClient();
   const pattern = `%${term}%`;
 
   if (kind === "organization") {
@@ -92,33 +92,19 @@ export async function searchEnrollmentOptions(
     return { options: [], error: null };
   }
 
-  const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("people")
-    .select("first_name, last_name, primary_email, user:users!inner(id, account_status, profiles!inner(organization_id), role_assignments!inner(organization_id, site_id, role_key, status, valid_from, valid_until))")
-    .eq("user.profiles.organization_id", organizationId)
-    .eq("user.role_assignments.organization_id", organizationId)
-    .eq("user.role_assignments.role_key", "guardian")
-    .eq("user.role_assignments.status", "active")
-    .lte("user.role_assignments.valid_from", now)
-    .or(`site_id.is.null,site_id.eq.${siteId}`, { referencedTable: "user.role_assignments" })
-    .or(`valid_until.is.null,valid_until.gt.${now}`, { referencedTable: "user.role_assignments" })
-    .in("user.account_status", ["active", "invited"])
-    .or(`first_name.ilike.${pattern},last_name.ilike.${pattern},primary_email.ilike.${pattern}`)
-    .order("last_name")
-    .order("first_name")
-    .limit(20);
+  const { data, error } = await supabase.rpc("mac_admin_search_guardians", {
+    p_organization_id: organizationId,
+    p_site_id: siteId,
+    p_query: term,
+  });
 
   return {
     options: error
       ? []
-      : (data ?? []).flatMap((person) => {
-          const users = Array.isArray(person.user) ? person.user : [person.user];
-          return users.filter(Boolean).map((user) => ({
-            id: user.id,
-            label: `${person.first_name} ${person.last_name} — ${person.primary_email ?? user.id} (${user.account_status})`,
-          }));
-        }),
+      : (data ?? []).map((guardian: { user_id: string; label: string }) => ({
+          id: guardian.user_id,
+          label: guardian.label,
+        })),
     error: error?.message ?? null,
   };
 }
