@@ -76,6 +76,11 @@ begin
     raise exception 'New enrollment status must be active or inactive';
   end if;
 
+  if p_relationship_type is null
+     or p_relationship_type not in ('parent_guardian', 'parent', 'guardian', 'caregiver') then
+    raise exception 'Guardian relationship type is invalid';
+  end if;
+
   if p_enrollment_start_date is null then
     raise exception 'Enrollment start date is required';
   end if;
