@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(32);
+select plan(34);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -122,6 +122,15 @@ select is(
 select ok((select enterprise_status = 'active' and enrollment_start_date = current_date from public.students where first_name = 'Real'), 'status and enrollment date are preserved');
 select is((select parent_id from public.students where first_name = 'Real'), null::uuid, 'canonical enrollment is decoupled from the guardian login profile');
 
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+update public.students
+set enterprise_status = 'withdrawn'
+where first_name = 'Real' and last_name = 'Learner';
+reset role;
+select is((select event_type from public.student_enrollment_events order by created_at desc, id desc limit 1), 'withdrawn', 'student withdrawal is recorded automatically');
+select is((select actor_user_id from public.student_enrollment_events order by created_at desc, id desc limit 1), 'a1000000-0000-4000-8000-000000000001'::uuid, 'status-change audit records the administrator actor');
+
 update public.guardians
 set status = 'restricted'
 where person_id = 'd1000000-0000-4000-8000-000000000004';
@@ -199,7 +208,7 @@ reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
-select is((select count(*) from public.student_enrollment_events), 1::bigint, 'own organization admin can view enrollment audit');
+select is((select count(*) from public.student_enrollment_events), 2::bigint, 'own organization admin can view enrollment audit');
 reset role;
 
 set local role authenticated;
