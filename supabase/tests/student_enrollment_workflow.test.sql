@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(17);
+select plan(18);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -112,6 +112,10 @@ select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-0000000
 select throws_ok(
   $$select public.mac_admin_enroll_student('Invalid', 'Status', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, 'withdrawn', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
   'P0001', 'New enrollment status must be active or inactive', 'unsupported initial status is rejected'
+);
+select throws_ok(
+  $$select public.mac_admin_enroll_student('Null', 'Status', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, null, 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  'P0001', 'New enrollment status must be active or inactive', 'null initial status is rejected'
 );
 reset role;
 
