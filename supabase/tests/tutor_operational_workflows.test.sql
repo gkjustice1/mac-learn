@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(22);
+select plan(27);
 
 insert into auth.users (id, email) values
   ('18000000-0000-4000-8000-000000000001', 'operations-admin@example.test'),
@@ -43,7 +43,8 @@ insert into public.students (
 ) values
   ('78000000-0000-4000-8000-000000000001', '68000000-0000-4000-8000-000000000001', 'Assigned', 'Learner', '4', '28000000-0000-4000-8000-000000000001', '38000000-0000-4000-8000-000000000001'),
   ('78000000-0000-4000-8000-000000000003', '68000000-0000-4000-8000-000000000001', 'Second Site', 'Learner', '4', '28000000-0000-4000-8000-000000000001', '38000000-0000-4000-8000-000000000003'),
-  ('78000000-0000-4000-8000-000000000002', '68000000-0000-4000-8000-000000000001', 'Foreign', 'Learner', '4', '28000000-0000-4000-8000-000000000002', '38000000-0000-4000-8000-000000000002');
+  ('78000000-0000-4000-8000-000000000002', '68000000-0000-4000-8000-000000000001', 'Foreign', 'Learner', '4', '28000000-0000-4000-8000-000000000002', '38000000-0000-4000-8000-000000000002'),
+  ('78000000-0000-4000-8000-000000000004', null, 'Canonical', 'Learner', '4', '28000000-0000-4000-8000-000000000001', '38000000-0000-4000-8000-000000000001');
 
 insert into public.subjects (id, name, grade_band)
 values ('88000000-0000-4000-8000-000000000001', 'Operational Reading', '3-5');
@@ -74,13 +75,25 @@ select ok(
   not has_function_privilege('anon', 'public.mac_platform_admin_schedule_session(uuid,uuid,uuid,timestamptz,timestamptz,text)', 'execute'),
   'anonymous users cannot invoke session scheduling'
 );
+select ok(
+  not (select attnotnull from pg_catalog.pg_attribute where attrelid = 'public.sessions'::regclass and attname = 'parent_id'),
+  'sessions do not require the legacy parent profile reference'
+);
+select is(
+  (select constraint_definition.confdeltype::text
+   from pg_catalog.pg_constraint constraint_definition
+   where constraint_definition.conrelid = 'public.sessions'::regclass
+     and constraint_definition.conname = 'sessions_parent_id_fkey'),
+  'n',
+  'deleting a legacy parent profile clears rather than deletes the session'
+);
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"18000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 
 select is(
   (select count(*) from public.mac_platform_admin_student_options()),
-  3::bigint,
+  4::bigint,
   'Platform Admin receives active enterprise student options'
 );
 select is(
@@ -107,6 +120,17 @@ select lives_ok(
     'https://example.test/session'
   )$$,
   'Platform Admin can assign a same-scope student session'
+);
+select lives_ok(
+  $$select public.mac_platform_admin_schedule_session(
+    '78000000-0000-4000-8000-000000000004',
+    '58000000-0000-4000-8000-000000000001',
+    '88000000-0000-4000-8000-000000000001',
+    now() + interval '1 day',
+    now() + interval '1 day 1 hour',
+    null
+  )$$,
+  'Platform Admin can schedule a canonically enrolled student without a legacy parent profile'
 );
 select lives_ok(
   $$select public.mac_platform_admin_schedule_session(
@@ -150,6 +174,11 @@ select is(
   1::bigint,
   'only the authorized session is created'
 );
+select is(
+  (select count(*) from public.sessions where student_id = '78000000-0000-4000-8000-000000000004' and parent_id is null),
+  1::bigint,
+  'canonical student session is stored without synthesizing a legacy parent link'
+);
 
 update public.sessions
 set start_time = now() - interval '2 hours',
@@ -173,6 +202,12 @@ insert into public.sessions (
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"18000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+
+select is(
+  (select count(*) from public.sessions where student_id = '78000000-0000-4000-8000-000000000004'),
+  1::bigint,
+  'Tutor RLS exposes the assigned canonical student session'
+);
 
 select throws_ok(
   $$select public.mac_platform_admin_schedule_session(
