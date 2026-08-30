@@ -57,14 +57,20 @@ as $$
 declare
   v_guardian_id uuid;
   v_event_type text;
+  v_actor_user_id uuid;
 begin
   if new.enterprise_status is not distinct from old.enterprise_status then
     return new;
   end if;
 
   if new.organization_id is null then
-    raise exception 'Student status changes require an organization for audit history';
+    return new;
   end if;
+
+  select enterprise_user.id
+  into v_actor_user_id
+  from public.users enterprise_user
+  where enterprise_user.id = auth.uid();
 
   select relationship.guardian_id
   into v_guardian_id
@@ -93,7 +99,7 @@ begin
     new.organization_id,
     new.primary_site_id,
     v_guardian_id,
-    auth.uid(),
+    v_actor_user_id,
     v_event_type,
     jsonb_build_object(
       'previous_enterprise_status', old.enterprise_status,
