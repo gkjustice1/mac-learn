@@ -38,6 +38,12 @@ test("failed new-guardian enrollment cleans up only an invited identity", () => 
   assert.match(actions, /deleteUser\(invitedGuardianUserId\)/);
 });
 
+test("organization and site are validated before sending a guardian invitation", () => {
+  assert.match(actions, /from\("organizations"\)[\s\S]*eq\("status", "active"\)/);
+  assert.match(actions, /from\("sites"\)[\s\S]*eq\("organization_id", organizationId\)[\s\S]*eq\("status", "active"\)/);
+  assert.ok(actions.indexOf("const [organizationCheck, siteCheck]") < actions.indexOf("inviteUserByEmail"));
+});
+
 test("controlled fields preserve data across unsuccessful submissions", () => {
   assert.match(form, /value=\{fields\[name\]\}/);
   for (const name of ["grade_level", "school_name", "guardian_first_name", "guardian_last_name", "guardian_email"]) {
