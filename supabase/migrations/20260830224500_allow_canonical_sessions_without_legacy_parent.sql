@@ -14,6 +14,3 @@ alter table public.sessions
   add constraint sessions_parent_id_fkey
   foreign key (parent_id) references public.profiles(id) on delete set null
   not valid;
-
-alter table public.sessions
-  validate constraint sessions_parent_id_fkey;
