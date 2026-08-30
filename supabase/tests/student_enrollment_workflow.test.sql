@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(24);
+select plan(26);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -58,6 +58,18 @@ select ok(
 select ok(
   not has_function_privilege('anon', 'public.mac_admin_enroll_student(text,text,text,text,uuid,uuid,date,text,uuid,text)', 'EXECUTE'),
   'anon cannot call enrollment function'
+);
+select ok(
+  not (select attnotnull from pg_catalog.pg_attribute where attrelid = 'public.students'::regclass and attname = 'parent_id'),
+  'legacy student parent profile reference is nullable'
+);
+select is(
+  (select constraint_definition.confdeltype::text
+   from pg_catalog.pg_constraint constraint_definition
+   where constraint_definition.conrelid = 'public.students'::regclass
+     and constraint_definition.conname = 'students_parent_id_fkey'),
+  'n',
+  'deleting a guardian profile clears only the legacy reference'
 );
 
 set local role authenticated;
