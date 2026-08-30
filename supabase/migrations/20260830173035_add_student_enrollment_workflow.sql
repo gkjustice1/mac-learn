@@ -48,6 +48,33 @@ revoke all on table public.student_enrollment_events from public, anon;
 revoke insert, update, delete on table public.student_enrollment_events from authenticated;
 grant select on table public.student_enrollment_events to authenticated;
 
+create or replace function public.mac_relationship_calendar_date(
+  p_student_id uuid,
+  p_organization_id uuid
+)
+returns date
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select coalesce(
+    (
+      select (now() at time zone site.timezone)::date
+      from public.students student
+      join public.sites site
+        on site.id = student.primary_site_id
+       and site.organization_id = student.organization_id
+      where student.id = p_student_id
+        and student.organization_id = p_organization_id
+    ),
+    current_date
+  );
+$$;
+
+revoke all on function public.mac_relationship_calendar_date(uuid, uuid) from public, anon;
+grant execute on function public.mac_relationship_calendar_date(uuid, uuid) to authenticated;
+
 drop policy if exists "Authenticated guardians view active educational relationships"
 on public.guardian_student_relationships;
 
@@ -59,10 +86,6 @@ using (public.mac_is_organization_admin(organization_id) or exists (
   select 1
   from public.guardians guardian
   join public.users enterprise_user on enterprise_user.person_id = guardian.person_id
-  join public.students student on student.id = guardian_student_relationships.student_id
-  left join public.sites site
-    on site.id = student.primary_site_id
-   and site.organization_id = student.organization_id
   where guardian.id = guardian_student_relationships.guardian_id
     and guardian.organization_id = guardian_student_relationships.organization_id
     and guardian.status = 'active'
@@ -71,11 +94,17 @@ using (public.mac_is_organization_admin(organization_id) or exists (
     and guardian_student_relationships.educational_access
     and (
       guardian_student_relationships.valid_from is null
-      or guardian_student_relationships.valid_from <= coalesce((now() at time zone site.timezone)::date, current_date)
+      or guardian_student_relationships.valid_from <= public.mac_relationship_calendar_date(
+        guardian_student_relationships.student_id,
+        guardian_student_relationships.organization_id
+      )
     )
     and (
       guardian_student_relationships.valid_until is null
-      or guardian_student_relationships.valid_until >= coalesce((now() at time zone site.timezone)::date, current_date)
+      or guardian_student_relationships.valid_until >= public.mac_relationship_calendar_date(
+        guardian_student_relationships.student_id,
+        guardian_student_relationships.organization_id
+      )
     )
 ));
 
@@ -103,9 +132,6 @@ using (
       on guardian.id = relationship.guardian_id
      and guardian.organization_id = relationship.organization_id
     join public.users enterprise_user on enterprise_user.person_id = guardian.person_id
-    left join public.sites site
-      on site.id = students.primary_site_id
-     and site.organization_id = students.organization_id
     where relationship.student_id = students.id
       and relationship.organization_id = students.organization_id
       and relationship.educational_access
@@ -114,11 +140,17 @@ using (
       and enterprise_user.account_status = 'active'
       and (
         relationship.valid_from is null
-        or relationship.valid_from <= coalesce((now() at time zone site.timezone)::date, current_date)
+        or relationship.valid_from <= public.mac_relationship_calendar_date(
+          students.id,
+          students.organization_id
+        )
       )
       and (
         relationship.valid_until is null
-        or relationship.valid_until >= coalesce((now() at time zone site.timezone)::date, current_date)
+        or relationship.valid_until >= public.mac_relationship_calendar_date(
+          students.id,
+          students.organization_id
+        )
       )
   )
 );
