@@ -39,7 +39,7 @@ returns table (
   id uuid,
   label text,
   organization_id uuid,
-  site_id uuid
+  site_ids uuid[]
 )
 language sql
 stable
@@ -73,11 +73,11 @@ stable
 security definer
 set search_path = public
 as $tutors$
-  select distinct
+  select
     tutor.id,
     profile.full_name,
     tutor.organization_id,
-    tutor.site_id
+    array_agg(distinct assignment.site_id) as site_ids
   from public.tutor_profiles tutor
   join public.profiles profile on profile.id = tutor.user_id
   join public.users enterprise_user on enterprise_user.id = profile.user_id
@@ -91,6 +91,7 @@ as $tutors$
   where public.mac_is_platform_admin()
     and enterprise_user.account_status = 'active'
     and tutor.organization_id is not null
+  group by tutor.id, profile.full_name, tutor.organization_id
   order by profile.full_name, tutor.id;
 $tutors$;
 

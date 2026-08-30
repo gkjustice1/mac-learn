@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(20);
+select plan(21);
 
 insert into auth.users (id, email) values
   ('18000000-0000-4000-8000-000000000001', 'operations-admin@example.test'),
@@ -86,6 +86,18 @@ select is(
   (select count(*) from public.mac_platform_admin_tutor_options()),
   2::bigint,
   'Platform Admin receives active Tutor options'
+);
+select is(
+  (
+    select count(*)
+    from unnest(
+      (select site_ids from public.mac_platform_admin_tutor_options()
+       where id = '58000000-0000-4000-8000-000000000001')
+    ) site_id
+    where site_id is not null
+  ),
+  2::bigint,
+  'Tutor options include every active site scope'
 );
 select lives_ok(
   $$select public.mac_platform_admin_schedule_session(
