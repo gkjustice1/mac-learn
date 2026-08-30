@@ -9,6 +9,7 @@ test("Platform Admin scheduling is self-authorizing and tenant scoped", async ()
   assert.match(migration, /mac_is_platform_admin\(\)/);
   assert.match(migration, /student and Tutor must belong to the same organization/);
   assert.match(migration, /student is outside the Tutor site scope/);
+  assert.match(migration, /assignment\.site_id = v_student_site_id/);
   assert.match(migration, /revoke all on function public\.mac_platform_admin_schedule_session/);
   assert.match(migration, /tutor_availability_valid_window[\s\S]*not valid/);
 });

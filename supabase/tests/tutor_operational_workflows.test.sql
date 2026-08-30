@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(19);
+select plan(20);
 
 insert into auth.users (id, email) values
   ('18000000-0000-4000-8000-000000000001', 'operations-admin@example.test'),
@@ -14,6 +14,7 @@ insert into public.organizations (id, name, slug) values
 
 insert into public.sites (id, organization_id, name, code) values
   ('38000000-0000-4000-8000-000000000001', '28000000-0000-4000-8000-000000000001', 'Operations Site', 'OPS'),
+  ('38000000-0000-4000-8000-000000000003', '28000000-0000-4000-8000-000000000001', 'Second Operations Site', 'OPS2'),
   ('38000000-0000-4000-8000-000000000002', '28000000-0000-4000-8000-000000000002', 'Foreign Site', 'FOREIGN');
 
 insert into public.users (id, account_status) values
@@ -33,12 +34,14 @@ insert into public.tutor_profiles (id, user_id, organization_id, site_id) values
 insert into public.role_assignments (user_id, role_key, organization_id, site_id, status) values
   ('18000000-0000-4000-8000-000000000001', 'platform_admin', null, null, 'active'),
   ('18000000-0000-4000-8000-000000000002', 'tutor', '28000000-0000-4000-8000-000000000001', '38000000-0000-4000-8000-000000000001', 'active'),
+  ('18000000-0000-4000-8000-000000000002', 'tutor', '28000000-0000-4000-8000-000000000001', '38000000-0000-4000-8000-000000000003', 'active'),
   ('18000000-0000-4000-8000-000000000003', 'tutor', '28000000-0000-4000-8000-000000000002', '38000000-0000-4000-8000-000000000002', 'active');
 
 insert into public.students (
   id, parent_id, first_name, last_name, grade_level, organization_id, primary_site_id
 ) values
   ('78000000-0000-4000-8000-000000000001', '68000000-0000-4000-8000-000000000001', 'Assigned', 'Learner', '4', '28000000-0000-4000-8000-000000000001', '38000000-0000-4000-8000-000000000001'),
+  ('78000000-0000-4000-8000-000000000003', '68000000-0000-4000-8000-000000000001', 'Second Site', 'Learner', '4', '28000000-0000-4000-8000-000000000001', '38000000-0000-4000-8000-000000000003'),
   ('78000000-0000-4000-8000-000000000002', '68000000-0000-4000-8000-000000000001', 'Foreign', 'Learner', '4', '28000000-0000-4000-8000-000000000002', '38000000-0000-4000-8000-000000000002');
 
 insert into public.subjects (id, name, grade_band)
@@ -76,7 +79,7 @@ select set_config('request.jwt.claims', '{"sub":"18000000-0000-4000-8000-0000000
 
 select is(
   (select count(*) from public.mac_platform_admin_student_options()),
-  2::bigint,
+  3::bigint,
   'Platform Admin receives active enterprise student options'
 );
 select is(
@@ -94,6 +97,17 @@ select lives_ok(
     'https://example.test/session'
   )$$,
   'Platform Admin can assign a same-scope student session'
+);
+select lives_ok(
+  $$select public.mac_platform_admin_schedule_session(
+    '78000000-0000-4000-8000-000000000003',
+    '58000000-0000-4000-8000-000000000001',
+    '88000000-0000-4000-8000-000000000001',
+    now() + interval '1 day',
+    now() + interval '1 day 1 hour',
+    null
+  )$$,
+  'Platform Admin can schedule within any active Tutor site scope'
 );
 select throws_ok(
   $$select public.mac_platform_admin_schedule_session(

@@ -88,10 +88,6 @@ as $tutors$
    and assignment.valid_from <= now()
    and (assignment.valid_until is null or assignment.valid_until > now())
    and assignment.organization_id = tutor.organization_id
-   and (
-     assignment.site_id is null
-     or assignment.site_id = tutor.site_id
-   )
   where public.mac_is_platform_admin()
     and enterprise_user.account_status = 'active'
     and tutor.organization_id is not null
@@ -119,7 +115,7 @@ declare
   v_student_organization_id uuid;
   v_student_site_id uuid;
   v_tutor_organization_id uuid;
-  v_tutor_site_id uuid;
+  v_tutor_user_id uuid;
   v_session_id uuid;
 begin
   if auth.uid() is null or not public.mac_is_platform_admin() then
@@ -143,8 +139,8 @@ begin
       using errcode = '22023';
   end if;
 
-  select tutor.organization_id, tutor.site_id
-  into v_tutor_organization_id, v_tutor_site_id
+  select tutor.organization_id, enterprise_user.id
+  into v_tutor_organization_id, v_tutor_user_id
   from public.tutor_profiles tutor
   join public.profiles profile on profile.id = tutor.user_id
   join public.users enterprise_user on enterprise_user.id = profile.user_id
@@ -159,10 +155,6 @@ begin
         and assignment.valid_from <= now()
         and (assignment.valid_until is null or assignment.valid_until > now())
         and assignment.organization_id = tutor.organization_id
-        and (
-          assignment.site_id is null
-          or assignment.site_id = tutor.site_id
-        )
     );
 
   if not found or v_tutor_organization_id is null then
@@ -175,8 +167,20 @@ begin
       using errcode = '42501';
   end if;
 
-  if v_tutor_site_id is not null
-     and v_tutor_site_id is distinct from v_student_site_id then
+  if not exists (
+    select 1
+    from public.role_assignments assignment
+    where assignment.user_id = v_tutor_user_id
+      and assignment.role_key = 'tutor'
+      and assignment.status = 'active'
+      and assignment.valid_from <= now()
+      and (assignment.valid_until is null or assignment.valid_until > now())
+      and assignment.organization_id = v_student_organization_id
+      and (
+        assignment.site_id is null
+        or assignment.site_id = v_student_site_id
+      )
+  ) then
     raise exception 'student is outside the Tutor site scope'
       using errcode = '42501';
   end if;
