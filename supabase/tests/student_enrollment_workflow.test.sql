@@ -128,8 +128,8 @@ update public.students
 set enterprise_status = 'withdrawn'
 where first_name = 'Real' and last_name = 'Learner';
 reset role;
-select is((select event_type from public.student_enrollment_events order by created_at desc, id desc limit 1), 'withdrawn', 'student withdrawal is recorded automatically');
-select is((select actor_user_id from public.student_enrollment_events order by created_at desc, id desc limit 1), 'a1000000-0000-4000-8000-000000000001'::uuid, 'status-change audit records the administrator actor');
+select is((select count(*) from public.student_enrollment_events where event_type = 'withdrawn'), 1::bigint, 'student withdrawal is recorded automatically');
+select is((select actor_user_id from public.student_enrollment_events where event_type = 'withdrawn'), 'a1000000-0000-4000-8000-000000000001'::uuid, 'status-change audit records the administrator actor');
 
 update public.guardians
 set status = 'restricted'
