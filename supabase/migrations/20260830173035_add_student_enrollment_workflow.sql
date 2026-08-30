@@ -75,6 +75,65 @@ $$;
 revoke all on function public.mac_relationship_calendar_date(uuid, uuid) from public, anon;
 grant execute on function public.mac_relationship_calendar_date(uuid, uuid) to authenticated;
 
+create or replace function public.mac_admin_search_guardians(
+  p_organization_id uuid,
+  p_site_id uuid,
+  p_query text
+)
+returns table (user_id uuid, label text)
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select distinct
+    enterprise_user.id,
+    concat(
+      person.first_name, ' ', person.last_name, ' — ',
+      coalesce(person.primary_email, enterprise_user.id::text),
+      ' (', enterprise_user.account_status, ')'
+    )
+  from public.people person
+  join public.users enterprise_user on enterprise_user.person_id = person.id
+  join public.profiles profile
+    on profile.user_id = enterprise_user.id
+   and profile.person_id = person.id
+   and profile.organization_id = p_organization_id
+  join public.role_assignments assignment
+    on assignment.user_id = enterprise_user.id
+   and assignment.organization_id = p_organization_id
+   and assignment.role_key = 'guardian'
+   and assignment.status = 'active'
+   and assignment.valid_from <= now()
+   and (assignment.valid_until is null or assignment.valid_until > now())
+   and (assignment.site_id is null or assignment.site_id = p_site_id)
+  where public.mac_is_platform_admin()
+    and enterprise_user.account_status in ('active', 'invited')
+    and length(btrim(p_query)) >= 2
+    and exists (
+      select 1
+      from public.sites site
+      where site.id = p_site_id
+        and site.organization_id = p_organization_id
+        and site.status = 'active'
+    )
+    and position(
+      lower(btrim(p_query)) in lower(concat_ws(' ', person.first_name, person.last_name, person.primary_email))
+    ) > 0
+    and not exists (
+      select 1
+      from public.guardians guardian
+      where guardian.organization_id = p_organization_id
+        and guardian.person_id = person.id
+        and guardian.status <> 'active'
+    )
+  order by 2
+  limit 20;
+$$;
+
+revoke all on function public.mac_admin_search_guardians(uuid, uuid, text) from public, anon;
+grant execute on function public.mac_admin_search_guardians(uuid, uuid, text) to authenticated;
+
 drop policy if exists "Authenticated guardians view active educational relationships"
 on public.guardian_student_relationships;
 
