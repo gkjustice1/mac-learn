@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(20);
+select plan(21);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -129,6 +129,10 @@ select throws_ok(
 select throws_ok(
   $$select public.mac_admin_enroll_student('Invalid', 'Relationship', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, 'active', 'a1000000-0000-4000-8000-000000000004', 'unsupported')$$,
   'P0001', 'Guardian relationship type is invalid', 'unsupported guardian relationship is rejected'
+);
+select throws_ok(
+  $$select public.mac_admin_enroll_student('Future', 'Active', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date + 1, 'active', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  'P0001', 'A future enrollment must remain inactive until its start date', 'future enrollment cannot be active early'
 );
 reset role;
 
