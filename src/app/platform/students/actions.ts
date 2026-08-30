@@ -160,6 +160,16 @@ export async function enrollStudent(
 
     await requireOrganizationAdmin(organizationId);
     const supabase = await createClient();
+    const [organizationCheck, siteCheck] = await Promise.all([
+      supabase.from("organizations").select("id").eq("id", organizationId).eq("status", "active").maybeSingle(),
+      supabase.from("sites").select("id").eq("id", siteId).eq("organization_id", organizationId).eq("status", "active").maybeSingle(),
+    ]);
+    if (organizationCheck.error || siteCheck.error) {
+      throw new Error("Unable to verify the selected organization and site.");
+    }
+    if (!organizationCheck.data) throw new Error("The selected organization is not active.");
+    if (!siteCheck.data) throw new Error("The selected site is not active in this organization.");
+
     let guardianUserId: string;
 
     if (guardianMode === "existing") {
