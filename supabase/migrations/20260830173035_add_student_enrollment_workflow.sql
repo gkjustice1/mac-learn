@@ -85,6 +85,10 @@ begin
     raise exception 'Enrollment start date is required';
   end if;
 
+  if p_enterprise_status = 'active' and p_enrollment_start_date > current_date then
+    raise exception 'A future enrollment must remain inactive until its start date';
+  end if;
+
   if not exists (
     select 1
     from public.organizations organization
