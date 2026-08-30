@@ -108,13 +108,14 @@ select throws_ok(
   'student and Tutor must belong to the same organization',
   'cross-organization Tutor assignment is rejected'
 );
+
+reset role;
 select is(
   (select count(*) from public.sessions where student_id = '78000000-0000-4000-8000-000000000001'),
   1::bigint,
   'only the authorized session is created'
 );
 
-reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"18000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 

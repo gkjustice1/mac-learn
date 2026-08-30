@@ -200,6 +200,9 @@ $schedule$;
 revoke all on function public.mac_platform_admin_schedule_session(
   uuid, uuid, uuid, timestamptz, timestamptz, text
 ) from public;
+revoke all on function public.mac_platform_admin_schedule_session(
+  uuid, uuid, uuid, timestamptz, timestamptz, text
+) from anon;
 grant execute on function public.mac_platform_admin_schedule_session(
   uuid, uuid, uuid, timestamptz, timestamptz, text
 ) to authenticated;
