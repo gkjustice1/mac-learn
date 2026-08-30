@@ -49,6 +49,9 @@ test("failed new-guardian enrollment cleans up only an invited identity", () => 
   assert.match(actions, /mac_cleanup_invited_enterprise_identity/);
   assert.match(actions, /cleanupStatus === "cleaned" \|\| cleanupStatus === "missing"/);
   assert.match(actions, /deleteUser\(invitedGuardianUserId\)/);
+  assert.match(actions, /const \{ error: deletionError \} = await adminClient\.auth\.admin\.deleteUser/);
+  assert.match(actions, /Remove this invited Auth user before resending/);
+  assert.match(actions, /cleanupFailure \? `\$\{message\(error\)\} \$\{cleanupFailure\}` : message\(error\)/);
 });
 
 test("organization and site are validated before sending a guardian invitation", () => {
