@@ -168,7 +168,8 @@ select lives_ok(
   $$insert into public.session_notes (session_id, tutor_id, attendance_status, skills_covered)
     select session.id, '58000000-0000-4000-8000-000000000001', 'present', 'Decoding'
     from public.sessions session
-    where session.student_id = '78000000-0000-4000-8000-000000000001'$$,
+    where session.student_id = '78000000-0000-4000-8000-000000000001'
+      and session.end_time <= now()$$,
   'a Tutor can add a note to their assigned session'
 );
 select throws_ok(
