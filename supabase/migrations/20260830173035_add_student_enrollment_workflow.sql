@@ -23,7 +23,7 @@ create table public.student_enrollment_events (
   student_id uuid not null references public.students(id) on delete restrict,
   organization_id uuid not null references public.organizations(id) on delete restrict,
   site_id uuid references public.sites(id) on delete set null,
-  guardian_id uuid not null references public.guardians(id) on delete restrict,
+  guardian_id uuid references public.guardians(id) on delete restrict,
   actor_user_id uuid references public.users(id) on delete set null,
   event_type text not null check (event_type in ('enrolled', 'updated', 'withdrawn', 'reactivated')),
   details jsonb not null default '{}'::jsonb,
@@ -47,6 +47,71 @@ using (public.mac_is_organization_admin(organization_id));
 revoke all on table public.student_enrollment_events from public, anon;
 revoke insert, update, delete on table public.student_enrollment_events from authenticated;
 grant select on table public.student_enrollment_events to authenticated;
+
+create or replace function public.mac_audit_student_enrollment_status()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_guardian_id uuid;
+  v_event_type text;
+begin
+  if new.enterprise_status is not distinct from old.enterprise_status then
+    return new;
+  end if;
+
+  if new.organization_id is null then
+    raise exception 'Student status changes require an organization for audit history';
+  end if;
+
+  select relationship.guardian_id
+  into v_guardian_id
+  from public.guardian_student_relationships relationship
+  where relationship.student_id = new.id
+    and relationship.organization_id = new.organization_id
+  order by relationship.educational_access desc, relationship.created_at, relationship.id
+  limit 1;
+
+  v_event_type := case
+    when new.enterprise_status = 'withdrawn' then 'withdrawn'
+    when new.enterprise_status = 'active' and old.enterprise_status is distinct from 'active' then 'reactivated'
+    else 'updated'
+  end;
+
+  insert into public.student_enrollment_events (
+    student_id,
+    organization_id,
+    site_id,
+    guardian_id,
+    actor_user_id,
+    event_type,
+    details
+  ) values (
+    new.id,
+    new.organization_id,
+    new.primary_site_id,
+    v_guardian_id,
+    auth.uid(),
+    v_event_type,
+    jsonb_build_object(
+      'previous_enterprise_status', old.enterprise_status,
+      'enterprise_status', new.enterprise_status
+    )
+  );
+
+  return new;
+end;
+$$;
+
+revoke all on function public.mac_audit_student_enrollment_status() from public, anon, authenticated;
+
+drop trigger if exists audit_student_enrollment_status on public.students;
+create trigger audit_student_enrollment_status
+after update of enterprise_status on public.students
+for each row
+execute function public.mac_audit_student_enrollment_status();
 
 create or replace function public.mac_relationship_calendar_date(
   p_student_id uuid,
