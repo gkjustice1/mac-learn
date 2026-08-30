@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(23);
+select plan(24);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -83,6 +83,7 @@ select is(
   'student deletion is restricted to preserve enrollment audit history'
 );
 select ok((select enterprise_status = 'active' and enrollment_start_date = current_date from public.students where first_name = 'Real'), 'status and enrollment date are preserved');
+select is((select parent_id from public.students where first_name = 'Real'), null::uuid, 'canonical enrollment is decoupled from the guardian login profile');
 
 update public.guardians
 set status = 'restricted'
@@ -146,8 +147,8 @@ select throws_ok(
   'P0001', 'Guardian relationship type is invalid', 'unsupported guardian relationship is rejected'
 );
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Future', 'Active', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date + 1, 'active', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
-  'P0001', 'A future enrollment must remain inactive until its start date', 'future enrollment cannot be active early'
+  $$select public.mac_admin_enroll_student('Future', 'Inactive', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date + 1, 'inactive', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  'P0001', 'Enrollment start date cannot be in the future', 'future enrollment is rejected until scheduling activation exists'
 );
 reset role;
 
