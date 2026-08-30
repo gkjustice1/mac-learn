@@ -32,8 +32,9 @@ test("student enrollment validates tenant, site, and guardian scope", () => {
   assert.match(migration, /values \(\s*null,\s*btrim\(p_first_name\)/);
   assert.match(migration, /alter column parent_id drop not null/);
   assert.match(migration, /foreign key \(parent_id\) references public\.profiles\(id\) on delete set null/);
-  assert.match(migration, /guardian_student_relationships\.valid_from <= coalesce\(\(now\(\) at time zone site\.timezone\)::date, current_date\)/);
-  assert.match(migration, /relationship\.valid_from <= coalesce\(\(now\(\) at time zone site\.timezone\)::date, current_date\)/);
+  assert.match(migration, /create or replace function public\.mac_relationship_calendar_date/);
+  assert.match(migration, /guardian_student_relationships\.valid_from <= public\.mac_relationship_calendar_date/);
+  assert.match(migration, /relationship\.valid_from <= public\.mac_relationship_calendar_date/);
   assert.match(actions, /site_id\.is\.null,site_id\.eq\.\$\{siteId\}/);
   assert.match(actions, /valid_until\.is\.null,valid_until\.gt\.\$\{now\}/);
   assert.match(actions, /role_assignments\.valid_from", now/);
