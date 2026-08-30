@@ -35,11 +35,11 @@ test("student enrollment validates tenant, site, and guardian scope", () => {
   assert.match(migration, /create or replace function public\.mac_relationship_calendar_date/);
   assert.match(migration, /guardian_student_relationships\.valid_from <= public\.mac_relationship_calendar_date/);
   assert.match(migration, /relationship\.valid_from <= public\.mac_relationship_calendar_date/);
-  assert.match(actions, /site_id\.is\.null,site_id\.eq\.\$\{siteId\}/);
-  assert.match(actions, /valid_until\.is\.null,valid_until\.gt\.\$\{now\}/);
-  assert.match(actions, /role_assignments\.valid_from", now/);
-  assert.match(actions, /profiles!inner\(organization_id\)/);
-  assert.match(actions, /user\.profiles\.organization_id", organizationId/);
+  assert.match(actions, /supabase\.rpc\("mac_admin_search_guardians"/);
+  assert.match(migration, /create or replace function public\.mac_admin_search_guardians/);
+  assert.match(migration, /where public\.mac_is_platform_admin\(\)/);
+  assert.match(migration, /guardian\.status <> 'active'/);
+  assert.match(migration, /grant execute on function public\.mac_admin_search_guardians\(uuid, uuid, text\) to authenticated/);
   assert.match(form, /siteId=\{siteId\}/);
   assert.match(form, /key=\{`site-\$\{organizationId\}`\}/);
   assert.match(form, /key=\{`guardian-\$\{organizationId\}-\$\{siteId\}`\}/);
@@ -59,7 +59,6 @@ test("organization and site are validated before sending a guardian invitation",
   assert.match(actions, /from\("sites"\)[\s\S]*eq\("organization_id", organizationId\)[\s\S]*eq\("status", "active"\)/);
   assert.ok(actions.indexOf("const [organizationCheck, siteCheck]") < actions.indexOf("inviteUserByEmail"));
   assert.ok(actions.indexOf("businessToday") < actions.indexOf("inviteUserByEmail"));
-  assert.match(actions, /kind === "guardian" \? createAdminClient\(\) : await createClient\(\)/);
 });
 
 test("controlled fields preserve data across unsuccessful submissions", () => {
