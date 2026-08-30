@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(21);
+select plan(23);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -83,6 +83,21 @@ select is(
   'student deletion is restricted to preserve enrollment audit history'
 );
 select ok((select enterprise_status = 'active' and enrollment_start_date = current_date from public.students where first_name = 'Real'), 'status and enrollment date are preserved');
+
+update public.guardians
+set status = 'restricted'
+where person_id = 'd1000000-0000-4000-8000-000000000004';
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select throws_ok(
+  $$select public.mac_admin_enroll_student('Restricted', 'Guardian', 'Grade 4', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, 'active', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  'P0001', 'The selected guardian is not active and must be reactivated separately', 'restricted guardian cannot be used for a new enrollment'
+);
+reset role;
+select is((select status from public.guardians where person_id = 'd1000000-0000-4000-8000-000000000004'), 'restricted', 'enrollment does not reactivate a restricted guardian');
+update public.guardians
+set status = 'active'
+where person_id = 'd1000000-0000-4000-8000-000000000004';
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
