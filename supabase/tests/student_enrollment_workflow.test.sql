@@ -51,8 +51,14 @@ insert into public.role_assignments (user_id, organization_id, site_id, role_key
   ('a1000000-0000-4000-8000-000000000005', 'b1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000002', 'guardian', 'active'),
   ('a1000000-0000-4000-8000-000000000006', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', 'tutor', 'active');
 
-select has_function_privilege('authenticated', 'public.mac_admin_enroll_student(text,text,text,text,uuid,uuid,date,text,uuid,text)', 'EXECUTE', 'authenticated may call enrollment function');
-select isnt(has_function_privilege('anon', 'public.mac_admin_enroll_student(text,text,text,text,uuid,uuid,date,text,uuid,text)', 'EXECUTE'), true, 'anon cannot call enrollment function');
+select ok(
+  has_function_privilege('authenticated', 'public.mac_admin_enroll_student(text,text,text,text,uuid,uuid,date,text,uuid,text)', 'EXECUTE'),
+  'authenticated may call enrollment function'
+);
+select ok(
+  not has_function_privilege('anon', 'public.mac_admin_enroll_student(text,text,text,text,uuid,uuid,date,text,uuid,text)', 'EXECUTE'),
+  'anon cannot call enrollment function'
+);
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
