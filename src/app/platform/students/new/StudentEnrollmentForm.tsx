@@ -184,7 +184,7 @@ export function StudentEnrollmentForm() {
       <fieldset className="grid gap-5">
         <legend className="text-lg font-bold text-slate-950">Enrollment</legend>
         <SearchField kind="organization" label="Organization" name="organization_id" value={organizationId} required placeholder="Search active organizations" onChange={(value) => { setOrganizationId(value); setSiteId(""); setGuardianUserId(""); }} />
-        <SearchField kind="site" label="Primary site" name="site_id" organizationId={organizationId} disabled={!organizationId} value={siteId} required placeholder="Search active sites" onChange={(value) => { setSiteId(value); setGuardianUserId(""); }} />
+        <SearchField key={`site-${organizationId}`} kind="site" label="Primary site" name="site_id" organizationId={organizationId} disabled={!organizationId} value={siteId} required placeholder="Search active sites" onChange={(value) => { setSiteId(value); setGuardianUserId(""); }} />
         <div className="grid gap-5 sm:grid-cols-2">
           <label className="grid gap-2 text-sm font-semibold text-slate-800">Enrollment start date
             <input name="enrollment_start_date" type="date" required value={fields.enrollment_start_date} onChange={(e) => update('enrollment_start_date', e.target.value)} className="rounded-xl border border-slate-300 px-4 py-3 font-normal" />
@@ -204,7 +204,7 @@ export function StudentEnrollmentForm() {
           <label className="flex items-center gap-2 text-sm font-semibold"><input type="radio" name="guardian_mode" value="new" checked={guardianMode === 'new'} onChange={() => { setGuardianMode('new'); setGuardianUserId(""); }} /> Invite new guardian</label>
         </div>
         {guardianMode === "existing" ? (
-          <SearchField kind="guardian" label="Guardian" name="guardian_user_id" organizationId={organizationId} siteId={siteId} disabled={!organizationId || !siteId} value={guardianUserId} required placeholder="Search guardian name or email" onChange={setGuardianUserId} />
+          <SearchField key={`guardian-${organizationId}-${siteId}`} kind="guardian" label="Guardian" name="guardian_user_id" organizationId={organizationId} siteId={siteId} disabled={!organizationId || !siteId} value={guardianUserId} required placeholder="Search guardian name or email" onChange={setGuardianUserId} />
         ) : (
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="grid gap-2 text-sm font-semibold">Guardian first name<input name="guardian_first_name" required value={fields.guardian_first_name} onChange={(e) => update('guardian_first_name', e.target.value)} className="rounded-xl border border-slate-300 px-4 py-3 font-normal" /></label>
