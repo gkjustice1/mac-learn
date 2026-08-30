@@ -22,6 +22,7 @@ test("student enrollment validates tenant, site, and guardian scope", () => {
   assert.match(migration, /assignment\.site_id is null or assignment\.site_id = p_site_id/);
   assert.match(migration, /enterprise_user\.account_status in \('invited', 'active'\)/);
   assert.match(migration, /p_enterprise_status is null or p_enterprise_status not in/);
+  assert.match(migration, /p_relationship_type is null[\s\S]*p_relationship_type not in \('parent_guardian', 'parent', 'guardian', 'caregiver'\)/);
   assert.match(actions, /site_id\.is\.null,site_id\.eq\.\$\{siteId\}/);
   assert.match(actions, /valid_until\.is\.null,valid_until\.gt\.\$\{now\}/);
   assert.match(actions, /role_assignments\.valid_from", now/);
