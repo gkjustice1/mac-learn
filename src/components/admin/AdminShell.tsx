@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 type AdminShellProps = {
   children: ReactNode;
-  activeItem?: "dashboard" | "organizations" | "sites" | "access";
+  activeItem?: "dashboard" | "organizations" | "sites" | "students" | "access";
 
 };
 
@@ -22,6 +22,11 @@ const navigation = [
     key: "sites",
     label: "Sites",
     href: "/platform/sites",
+  },
+  {
+    key: "students",
+    label: "Students",
+    href: "/platform/students",
   },
   {
     key: "access",
