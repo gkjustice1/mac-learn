@@ -30,6 +30,8 @@ test("student enrollment validates tenant, site, and guardian scope", () => {
   assert.match(migration, /now\(\) at time zone v_site_timezone/);
   assert.match(migration, /Enrollment start date cannot be in the future/);
   assert.match(migration, /values \(\s*null,\s*btrim\(p_first_name\)/);
+  assert.match(migration, /alter column parent_id drop not null/);
+  assert.match(migration, /foreign key \(parent_id\) references public\.profiles\(id\) on delete set null/);
   assert.match(actions, /site_id\.is\.null,site_id\.eq\.\$\{siteId\}/);
   assert.match(actions, /valid_until\.is\.null,valid_until\.gt\.\$\{now\}/);
   assert.match(actions, /role_assignments\.valid_from", now/);
