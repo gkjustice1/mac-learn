@@ -94,7 +94,8 @@ export async function searchEnrollmentOptions(
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("people")
-    .select("first_name, last_name, primary_email, user:users!inner(id, account_status, role_assignments!inner(organization_id, site_id, role_key, status, valid_from, valid_until))")
+    .select("first_name, last_name, primary_email, user:users!inner(id, account_status, profiles!inner(organization_id), role_assignments!inner(organization_id, site_id, role_key, status, valid_from, valid_until))")
+    .eq("user.profiles.organization_id", organizationId)
     .eq("user.role_assignments.organization_id", organizationId)
     .eq("user.role_assignments.role_key", "guardian")
     .eq("user.role_assignments.status", "active")
