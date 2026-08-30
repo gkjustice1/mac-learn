@@ -18,7 +18,8 @@ test("canonical student sessions do not require a legacy parent profile", async 
   const migration = await read("supabase/migrations/20260830224500_allow_canonical_sessions_without_legacy_parent.sql");
   const databaseTest = await read("supabase/tests/tutor_operational_workflows.test.sql");
   assert.match(migration, /alter column parent_id drop not null/);
-  assert.match(migration, /foreign key \(parent_id\) references public\.profiles\(id\) on delete set null/);
+  assert.match(migration, /foreign key \(parent_id\) references public\.profiles\(id\) on delete set null\s+not valid/);
+  assert.match(migration, /validate constraint sessions_parent_id_fkey/);
   assert.match(databaseTest, /Platform Admin can schedule a canonically enrolled student without a legacy parent profile/);
   assert.match(databaseTest, /Tutor RLS exposes the assigned canonical student session/);
 });
