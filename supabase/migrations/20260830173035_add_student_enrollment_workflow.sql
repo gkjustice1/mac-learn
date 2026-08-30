@@ -8,6 +8,16 @@ alter table public.students
   check (enterprise_status in ('active', 'inactive', 'withdrawn', 'archived'))
   not valid;
 
+alter table public.students
+  alter column parent_id drop not null;
+
+alter table public.students
+  drop constraint if exists students_parent_id_fkey;
+
+alter table public.students
+  add constraint students_parent_id_fkey
+  foreign key (parent_id) references public.profiles(id) on delete set null;
+
 create table public.student_enrollment_events (
   id uuid primary key default gen_random_uuid(),
   student_id uuid not null references public.students(id) on delete restrict,
