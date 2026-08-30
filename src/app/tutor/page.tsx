@@ -85,6 +85,7 @@ export default async function TutorPage() {
     scopeSitesResult,
     studentsResult,
     sessionsResult,
+    elapsedSessionsResult,
     availabilityResult,
     notesResult,
     reportsResult,
@@ -120,6 +121,7 @@ export default async function TutorPage() {
         "id, student_id, start_time, end_time, status, zoom_link, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)"
       )
       .order("start_time", { ascending: true }),
+    supabase.from("sessions").select("id").lte("end_time", "now"),
     supabase
       .from("tutor_availability")
       .select("id, day_of_week, start_time, end_time")
@@ -146,6 +148,7 @@ export default async function TutorPage() {
     scopeSitesResult,
     studentsResult,
     sessionsResult,
+    elapsedSessionsResult,
     availabilityResult,
     notesResult,
     reportsResult,
@@ -187,8 +190,13 @@ export default async function TutorPage() {
     ["pending", "confirmed"].includes(session.status ?? "")
   );
   const notedSessionIds = new Set(notes.map((note) => note.session_id));
+  const elapsedSessionIds = new Set(
+    (elapsedSessionsResult.data ?? []).map((session) => session.id)
+  );
   const sessionsWithoutNotes = sessions.filter(
-    (session) => !notedSessionIds.has(session.id)
+    (session) =>
+      !notedSessionIds.has(session.id) &&
+      elapsedSessionIds.has(session.id)
   );
 
   return (

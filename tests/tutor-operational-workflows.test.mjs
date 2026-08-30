@@ -40,8 +40,15 @@ test("administrator and Tutor operational forms are connected to Server Actions"
 });
 
 test("Tutor note choices exclude sessions that already have a note", async () => {
-  const page = await read("src/app/tutor/page.tsx");
+  const [page, actions] = await Promise.all([
+    read("src/app/tutor/page.tsx"),
+    read("src/app/tutor/actions.ts"),
+  ]);
   assert.match(page, /notedSessionIds/);
   assert.match(page, /sessionsWithoutNotes/);
+  assert.match(page, /\.lte\("end_time", "now"\)/);
+  assert.match(page, /elapsedSessionIds\.has\(session\.id\)/);
   assert.match(page, /sessions=\{sessionsWithoutNotes\.map/);
+  assert.match(actions, /Session notes can only be created after the session ends/);
+  assert.match(actions, /\.eq\("tutor_id", tutorId\)/);
 });

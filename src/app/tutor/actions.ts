@@ -35,6 +35,17 @@ export async function createTutorSessionNote(_previous: TutorActionState, formDa
   const performance = String(formData.get("performance_notes") ?? "").trim();
   if (!sessionId || !["present", "absent", "late", "excused"].includes(attendance)) return initialError("Session and attendance are required.");
   const { supabase, tutorId } = await tutorClient();
+  const { data: session, error: sessionError } = await supabase
+    .from("sessions")
+    .select("id, end_time")
+    .eq("id", sessionId)
+    .eq("tutor_id", tutorId)
+    .maybeSingle();
+  if (sessionError) return initialError(sessionError.message);
+  if (!session) return initialError("The selected session is not assigned to this Tutor.");
+  if (new Date(session.end_time).getTime() > Date.now()) {
+    return initialError("Session notes can only be created after the session ends.");
+  }
   const { error } = await supabase.from("session_notes").insert({ session_id: sessionId, tutor_id: tutorId, attendance_status: attendance, skills_covered: String(formData.get("skills_covered") ?? "").trim() || null, performance_notes: performance || null, homework_assigned: String(formData.get("homework_assigned") ?? "").trim() || null, parent_summary: String(formData.get("parent_summary") ?? "").trim() || null });
   if (error) return initialError(error.message);
   revalidatePath("/tutor");
