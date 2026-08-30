@@ -13,6 +13,7 @@ test("student enrollment is restricted and transactionally audited", () => {
   assert.match(migration, /security definer/);
   assert.match(migration, /not public\.mac_is_organization_admin\(p_organization_id\)/);
   assert.match(migration, /insert into public\.student_enrollment_events/);
+  assert.match(migration, /student_id uuid not null references public\.students\(id\) on delete restrict/);
   assert.match(migration, /revoke insert, update, delete.*authenticated/s);
 });
 
@@ -26,6 +27,8 @@ test("student enrollment validates tenant, site, and guardian scope", () => {
   assert.match(actions, /site_id\.is\.null,site_id\.eq\.\$\{siteId\}/);
   assert.match(actions, /valid_until\.is\.null,valid_until\.gt\.\$\{now\}/);
   assert.match(actions, /role_assignments\.valid_from", now/);
+  assert.match(actions, /profiles!inner\(organization_id\)/);
+  assert.match(actions, /user\.profiles\.organization_id", organizationId/);
   assert.match(form, /siteId=\{siteId\}/);
 });
 
