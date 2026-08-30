@@ -72,11 +72,11 @@ select is(
   'deleting a guardian profile clears only the legacy reference'
 );
 select ok(
-  (select qual ilike '%site.timezone%' from pg_catalog.pg_policies where schemaname = 'public' and tablename = 'guardian_student_relationships' and policyname = 'Authenticated guardians view active educational relationships'),
+  (select qual ilike '%mac_relationship_calendar_date%' from pg_catalog.pg_policies where schemaname = 'public' and tablename = 'guardian_student_relationships' and policyname = 'Authenticated guardians view active educational relationships'),
   'guardian relationship visibility uses the student site timezone'
 );
 select ok(
-  (select qual ilike '%site.timezone%' from pg_catalog.pg_policies where schemaname = 'public' and tablename = 'students' and policyname = 'Authenticated families view only related students'),
+  (select qual ilike '%mac_relationship_calendar_date%' from pg_catalog.pg_policies where schemaname = 'public' and tablename = 'students' and policyname = 'Authenticated families view only related students'),
   'family student visibility uses the student site timezone'
 );
 
