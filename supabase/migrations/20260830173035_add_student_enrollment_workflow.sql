@@ -48,6 +48,81 @@ revoke all on table public.student_enrollment_events from public, anon;
 revoke insert, update, delete on table public.student_enrollment_events from authenticated;
 grant select on table public.student_enrollment_events to authenticated;
 
+drop policy if exists "Authenticated guardians view active educational relationships"
+on public.guardian_student_relationships;
+
+create policy "Authenticated guardians view active educational relationships"
+on public.guardian_student_relationships
+for select
+to authenticated
+using (public.mac_is_organization_admin(organization_id) or exists (
+  select 1
+  from public.guardians guardian
+  join public.users enterprise_user on enterprise_user.person_id = guardian.person_id
+  join public.students student on student.id = guardian_student_relationships.student_id
+  left join public.sites site
+    on site.id = student.primary_site_id
+   and site.organization_id = student.organization_id
+  where guardian.id = guardian_student_relationships.guardian_id
+    and guardian.organization_id = guardian_student_relationships.organization_id
+    and guardian.status = 'active'
+    and enterprise_user.id = (select auth.uid())
+    and enterprise_user.account_status = 'active'
+    and guardian_student_relationships.educational_access
+    and (
+      guardian_student_relationships.valid_from is null
+      or guardian_student_relationships.valid_from <= coalesce((now() at time zone site.timezone)::date, current_date)
+    )
+    and (
+      guardian_student_relationships.valid_until is null
+      or guardian_student_relationships.valid_until >= coalesce((now() at time zone site.timezone)::date, current_date)
+    )
+));
+
+drop policy if exists "Authenticated families view only related students"
+on public.students;
+
+create policy "Authenticated families view only related students"
+on public.students
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles legacy_parent
+    where legacy_parent.id = students.parent_id
+      and legacy_parent.user_id = (select auth.uid())
+      and public.mac_can_use_legacy_family_link(
+        coalesce(students.organization_id, legacy_parent.organization_id)
+      )
+  )
+  or exists (
+    select 1
+    from public.guardian_student_relationships relationship
+    join public.guardians guardian
+      on guardian.id = relationship.guardian_id
+     and guardian.organization_id = relationship.organization_id
+    join public.users enterprise_user on enterprise_user.person_id = guardian.person_id
+    left join public.sites site
+      on site.id = students.primary_site_id
+     and site.organization_id = students.organization_id
+    where relationship.student_id = students.id
+      and relationship.organization_id = students.organization_id
+      and relationship.educational_access
+      and guardian.status = 'active'
+      and enterprise_user.id = (select auth.uid())
+      and enterprise_user.account_status = 'active'
+      and (
+        relationship.valid_from is null
+        or relationship.valid_from <= coalesce((now() at time zone site.timezone)::date, current_date)
+      )
+      and (
+        relationship.valid_until is null
+        or relationship.valid_until >= coalesce((now() at time zone site.timezone)::date, current_date)
+      )
+  )
+);
+
 create or replace function public.mac_admin_enroll_student(
   p_first_name text,
   p_last_name text,
