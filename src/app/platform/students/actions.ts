@@ -178,8 +178,8 @@ export async function enrollStudent(
     }).formatToParts(new Date());
     const businessDate = Object.fromEntries(businessDateParts.map((part) => [part.type, part.value]));
     const businessToday = `${businessDate.year}-${businessDate.month}-${businessDate.day}`;
-    if (enterpriseStatus === "active" && enrollmentStartDate > businessToday) {
-      throw new Error("A future enrollment must remain inactive until its start date.");
+    if (enrollmentStartDate > businessToday) {
+      throw new Error("Enrollment start date cannot be in the future.");
     }
 
     let guardianUserId: string;
