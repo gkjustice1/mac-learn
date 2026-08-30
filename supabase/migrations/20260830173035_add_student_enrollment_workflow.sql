@@ -106,9 +106,8 @@ begin
     raise exception 'The selected site is not active in this organization';
   end if;
 
-  if p_enterprise_status = 'active'
-     and p_enrollment_start_date > (now() at time zone v_site_timezone)::date then
-    raise exception 'A future enrollment must remain inactive until its start date';
+  if p_enrollment_start_date > (now() at time zone v_site_timezone)::date then
+    raise exception 'Enrollment start date cannot be in the future';
   end if;
 
   select enterprise_user.person_id, profile.id
@@ -173,7 +172,7 @@ begin
     enrollment_start_date
   )
   values (
-    v_guardian_profile_id,
+    null,
     btrim(p_first_name),
     btrim(p_last_name),
     btrim(p_grade_level),
