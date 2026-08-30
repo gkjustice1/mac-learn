@@ -113,14 +113,9 @@ function SubmitButton() {
   );
 }
 
-function currentLocalDate() {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
-}
-
 export function StudentEnrollmentForm() {
   const [state, formAction] = useActionState(enrollStudent, {
+    active: false,
     enrolled: false,
     error: null,
     guardianInvited: false,
@@ -134,7 +129,7 @@ export function StudentEnrollmentForm() {
     last_name: "",
     grade_level: "",
     school_name: "",
-    enrollment_start_date: currentLocalDate(),
+    enrollment_start_date: "",
     enterprise_status: "active",
     relationship_type: "parent_guardian",
     guardian_first_name: "",
@@ -149,7 +144,8 @@ export function StudentEnrollmentForm() {
       <section className="grid gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
         <h3 className="text-lg font-bold text-emerald-950">Student enrollment created</h3>
         <p className="text-sm text-emerald-900">
-          The student is linked to the guardian and is now available in Tutor operations.
+          The student is linked to the guardian.
+          {state.active ? " The active student is now available in Tutor operations." : " The student will appear in Tutor operations after the enrollment is activated."}
           {state.guardianInvited ? " The new guardian must create a password from the invitation email." : ""}
         </p>
         <div className="flex flex-wrap gap-4">
