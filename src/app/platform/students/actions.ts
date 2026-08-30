@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export type EnrollmentActionState = {
+  active: boolean;
   enrolled: boolean;
   error: string | null;
   guardianInvited: boolean;
@@ -48,7 +49,7 @@ export async function searchEnrollmentOptions(
   await requirePlatformAdmin();
   const term = query.replace(/[,%()]/g, " ").trim().slice(0, 100);
   if (term.length < 2) return { options: [], error: null };
-  const supabase = await createClient();
+  const supabase = kind === "guardian" ? createAdminClient() : await createClient();
   const pattern = `%${term}%`;
 
   if (kind === "organization") {
@@ -154,9 +155,6 @@ export async function enrollStudent(
     if (!['active', 'inactive'].includes(enterpriseStatus)) {
       throw new Error("Enrollment status must be active or inactive.");
     }
-    if (enterpriseStatus === "active" && enrollmentStartDate > new Date().toISOString().slice(0, 10)) {
-      throw new Error("A future enrollment must remain inactive until its start date.");
-    }
     if (!['parent_guardian', 'parent', 'guardian', 'caregiver'].includes(relationshipType)) {
       throw new Error("Guardian relationship type is invalid.");
     }
@@ -165,13 +163,24 @@ export async function enrollStudent(
     const supabase = await createClient();
     const [organizationCheck, siteCheck] = await Promise.all([
       supabase.from("organizations").select("id").eq("id", organizationId).eq("status", "active").maybeSingle(),
-      supabase.from("sites").select("id").eq("id", siteId).eq("organization_id", organizationId).eq("status", "active").maybeSingle(),
+      supabase.from("sites").select("id, timezone").eq("id", siteId).eq("organization_id", organizationId).eq("status", "active").maybeSingle(),
     ]);
     if (organizationCheck.error || siteCheck.error) {
       throw new Error("Unable to verify the selected organization and site.");
     }
     if (!organizationCheck.data) throw new Error("The selected organization is not active.");
     if (!siteCheck.data) throw new Error("The selected site is not active in this organization.");
+    const businessDateParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: siteCheck.data.timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const businessDate = Object.fromEntries(businessDateParts.map((part) => [part.type, part.value]));
+    const businessToday = `${businessDate.year}-${businessDate.month}-${businessDate.day}`;
+    if (enterpriseStatus === "active" && enrollmentStartDate > businessToday) {
+      throw new Error("A future enrollment must remain inactive until its start date.");
+    }
 
     let guardianUserId: string;
 
@@ -251,7 +260,7 @@ export async function enrollStudent(
 
     revalidatePath("/platform/students");
     revalidatePath("/platform/tutor-operations");
-    return { enrolled: true, error: null, guardianInvited: guardianMode === "new" };
+    return { active: enterpriseStatus === "active", enrolled: true, error: null, guardianInvited: guardianMode === "new" };
   } catch (error) {
     if (invitedGuardianUserId && adminClient) {
       const { data: cleanupStatus, error: cleanupError } = await adminClient.rpc(
@@ -262,6 +271,6 @@ export async function enrollStudent(
         await adminClient.auth.admin.deleteUser(invitedGuardianUserId);
       }
     }
-    return { enrolled: false, error: message(error), guardianInvited: false };
+    return { active: false, enrolled: false, error: message(error), guardianInvited: false };
   }
 }
