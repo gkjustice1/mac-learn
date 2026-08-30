@@ -42,7 +42,8 @@ function message(error: unknown) {
 export async function searchEnrollmentOptions(
   kind: "organization" | "site" | "guardian",
   query: string,
-  organizationId: string | null = null
+  organizationId: string | null = null,
+  siteId: string | null = null
 ): Promise<EnrollmentSearchResult> {
   await requirePlatformAdmin();
   const term = query.replace(/[,%()]/g, " ").trim().slice(0, 100);
@@ -86,12 +87,20 @@ export async function searchEnrollmentOptions(
     };
   }
 
+  if (!siteId || !UUID_PATTERN.test(siteId)) {
+    return { options: [], error: null };
+  }
+
+  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("people")
-    .select("first_name, last_name, primary_email, user:users!inner(id, account_status, role_assignments!inner(organization_id, role_key, status))")
+    .select("first_name, last_name, primary_email, user:users!inner(id, account_status, role_assignments!inner(organization_id, site_id, role_key, status, valid_from, valid_until))")
     .eq("user.role_assignments.organization_id", organizationId)
     .eq("user.role_assignments.role_key", "guardian")
     .eq("user.role_assignments.status", "active")
+    .lte("user.role_assignments.valid_from", now)
+    .or(`site_id.is.null,site_id.eq.${siteId}`, { referencedTable: "user.role_assignments" })
+    .or(`valid_until.is.null,valid_until.gt.${now}`, { referencedTable: "user.role_assignments" })
     .in("user.account_status", ["active", "invited"])
     .or(`first_name.ilike.${pattern},last_name.ilike.${pattern},primary_email.ilike.${pattern}`)
     .order("last_name")
