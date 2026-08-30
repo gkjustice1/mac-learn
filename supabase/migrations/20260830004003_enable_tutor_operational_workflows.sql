@@ -14,7 +14,8 @@ from anon;
 
 alter table public.tutor_availability
   add constraint tutor_availability_valid_window
-  check (end_time > start_time);
+  check (end_time > start_time)
+  not valid;
 
 create or replace function public.mac_platform_admin_student_options()
 returns table (

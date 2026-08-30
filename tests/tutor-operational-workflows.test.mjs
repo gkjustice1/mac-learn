@@ -10,6 +10,7 @@ test("Platform Admin scheduling is self-authorizing and tenant scoped", async ()
   assert.match(migration, /student and Tutor must belong to the same organization/);
   assert.match(migration, /student is outside the Tutor site scope/);
   assert.match(migration, /revoke all on function public\.mac_platform_admin_schedule_session/);
+  assert.match(migration, /tutor_availability_valid_window[\s\S]*not valid/);
 });
 
 test("Tutor writes receive only the required authenticated grants", async () => {
@@ -29,9 +30,18 @@ test("administrator and Tutor operational forms are connected to Server Actions"
   ]);
   assert.match(adminForm, /aria-label="Student selection"/);
   assert.match(adminForm, /aria-label="Tutor selection"/);
+  assert.match(adminForm, /new Date\(localValue\)\.toISOString\(\)/);
+  assert.match(adminActions, /time-zone offset/);
   assert.match(adminActions, /mac_platform_admin_schedule_session/);
   assert.match(tutorForms, /A scheduled session is required/);
   assert.match(tutorForms, /An assigned student is required/);
   assert.match(tutorActions, /mac_current_tutor_id/);
   assert.match(tutorActions, /revalidatePath\("\/tutor"\)/);
+});
+
+test("Tutor note choices exclude sessions that already have a note", async () => {
+  const page = await read("src/app/tutor/page.tsx");
+  assert.match(page, /notedSessionIds/);
+  assert.match(page, /sessionsWithoutNotes/);
+  assert.match(page, /sessions=\{sessionsWithoutNotes\.map/);
 });

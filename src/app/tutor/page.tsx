@@ -186,6 +186,10 @@ export default async function TutorPage() {
   const openSessions = sessions.filter((session) =>
     ["pending", "confirmed"].includes(session.status ?? "")
   );
+  const notedSessionIds = new Set(notes.map((note) => note.session_id));
+  const sessionsWithoutNotes = sessions.filter(
+    (session) => !notedSessionIds.has(session.id)
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -364,7 +368,7 @@ export default async function TutorPage() {
 
         <section id="availability" className="scroll-mt-6">
           <h2 className="text-xl font-bold">Availability</h2>
-          <div className="mt-4"><TutorOperationForms students={students.map((student) => ({ id: student.id, label: `${student.first_name} ${student.last_name}` }))} sessions={sessions.map((session) => { const student = relatedRecord(session.student); return { id: session.id, label: `${student?.first_name ?? "Student"} ${student?.last_name ?? ""} · ${formatDateTime(session.start_time, sessionTimeZones.get(session.id) ?? "UTC")}` }; })} /></div>
+          <div className="mt-4"><TutorOperationForms students={students.map((student) => ({ id: student.id, label: `${student.first_name} ${student.last_name}` }))} sessions={sessionsWithoutNotes.map((session) => { const student = relatedRecord(session.student); return { id: session.id, label: `${student?.first_name ?? "Student"} ${student?.last_name ?? ""} · ${formatDateTime(session.start_time, sessionTimeZones.get(session.id) ?? "UTC")}` }; })} /></div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {availability.length === 0 ? (
               <EmptyState>No availability windows have been added.</EmptyState>

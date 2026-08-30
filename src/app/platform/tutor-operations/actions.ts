@@ -22,6 +22,9 @@ export async function scheduleTutorSession(
   if (!studentId || !tutorId || !startTime || !endTime) {
     return { error: "Student, Tutor, start time, and end time are required.", scheduled: false };
   }
+  if (!/(?:Z|[+-]\d{2}:\d{2})$/.test(startTime) || !/(?:Z|[+-]\d{2}:\d{2})$/.test(endTime)) {
+    return { error: "Session times must include the administrator's time-zone offset.", scheduled: false };
+  }
   if (new Date(endTime) <= new Date(startTime)) {
     return { error: "End time must be after start time.", scheduled: false };
   }

@@ -20,7 +20,14 @@ export function SessionAssignmentForm({ students, tutors, subjects }: { students
   const student = students.find((item) => item.id === studentId);
   const compatibleTutors = useMemo(() => tutors.filter((tutor) => !student || (tutor.organization_id === student.organization_id && (!tutor.site_id || tutor.site_id === student.site_id))), [student, tutors]);
   const unavailable = students.length === 0 || tutors.length === 0;
-  return <form action={action} className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  const submitWithBrowserTimeZone = (formData: FormData) => {
+    for (const field of ["start_time", "end_time"]) {
+      const localValue = String(formData.get(field) ?? "");
+      if (localValue) formData.set(field, new Date(localValue).toISOString());
+    }
+    action(formData);
+  };
+  return <form action={submitWithBrowserTimeZone} className="grid gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     {state.error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{state.error}</p>}
     {state.scheduled && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">Session assigned successfully.</p>}
     {students.length === 0 && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">No active students are available. Create and link a student before scheduling a Tutor session.</p>}
