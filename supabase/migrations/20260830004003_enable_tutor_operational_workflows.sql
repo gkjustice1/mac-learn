@@ -39,7 +39,7 @@ returns table (
   id uuid,
   label text,
   organization_id uuid,
-  site_ids uuid[]
+  site_id uuid
 )
 language sql
 stable
@@ -66,7 +66,7 @@ returns table (
   id uuid,
   label text,
   organization_id uuid,
-  site_id uuid
+  site_ids uuid[]
 )
 language sql
 stable
