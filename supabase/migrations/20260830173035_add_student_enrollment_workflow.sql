@@ -137,8 +137,21 @@ begin
   insert into public.guardians (organization_id, person_id, status)
   values (p_organization_id, v_guardian_person_id, 'active')
   on conflict (organization_id, person_id)
-  do update set status = 'active', updated_at = now()
+  do nothing
   returning id into v_guardian_id;
+
+  if v_guardian_id is null then
+    select guardian.id
+    into v_guardian_id
+    from public.guardians guardian
+    where guardian.organization_id = p_organization_id
+      and guardian.person_id = v_guardian_person_id
+      and guardian.status = 'active';
+  end if;
+
+  if v_guardian_id is null then
+    raise exception 'The selected guardian is not active and must be reactivated separately';
+  end if;
 
   insert into public.people (first_name, last_name)
   values (btrim(p_first_name), btrim(p_last_name))
