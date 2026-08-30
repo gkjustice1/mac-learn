@@ -46,6 +46,10 @@ test("Tutor workspace exposes all requested operational sections", () => {
   }
 });
 
+test("Tutor operational forms require a resolved Tutor profile", () => {
+  assert.match(workspace, /\{tutorId && \([\s\S]*<TutorOperationForms/);
+});
+
 test("Tutor profile backfill handles users with multiple active scopes", () => {
   assert.match(profileMigration, /select distinct on \(profile\.id\)/);
   assert.match(profileMigration, /order by[\s\S]*profile\.id/);

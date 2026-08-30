@@ -4,6 +4,7 @@ import { logout } from "@/app/actions";
 import { requireRole } from "@/lib/auth/authorization";
 import { getAuthorizationContext } from "@/lib/auth/context";
 import { createClient } from "@/lib/supabase/server";
+import { TutorOperationForms } from "./TutorOperationForms";
 
 const DAYS = [
   "Sunday",
@@ -84,6 +85,7 @@ export default async function TutorPage() {
     scopeSitesResult,
     studentsResult,
     sessionsResult,
+    elapsedSessionsResult,
     availabilityResult,
     notesResult,
     reportsResult,
@@ -119,6 +121,7 @@ export default async function TutorPage() {
         "id, student_id, start_time, end_time, status, zoom_link, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)"
       )
       .order("start_time", { ascending: true }),
+    supabase.from("sessions").select("id").lte("end_time", "now"),
     supabase
       .from("tutor_availability")
       .select("id, day_of_week, start_time, end_time")
@@ -145,6 +148,7 @@ export default async function TutorPage() {
     scopeSitesResult,
     studentsResult,
     sessionsResult,
+    elapsedSessionsResult,
     availabilityResult,
     notesResult,
     reportsResult,
@@ -184,6 +188,15 @@ export default async function TutorPage() {
   );
   const openSessions = sessions.filter((session) =>
     ["pending", "confirmed"].includes(session.status ?? "")
+  );
+  const notedSessionIds = new Set(notes.map((note) => note.session_id));
+  const elapsedSessionIds = new Set(
+    (elapsedSessionsResult.data ?? []).map((session) => session.id)
+  );
+  const sessionsWithoutNotes = sessions.filter(
+    (session) =>
+      !notedSessionIds.has(session.id) &&
+      elapsedSessionIds.has(session.id)
   );
 
   return (
@@ -363,6 +376,23 @@ export default async function TutorPage() {
 
         <section id="availability" className="scroll-mt-6">
           <h2 className="text-xl font-bold">Availability</h2>
+          {tutorId && (
+            <div className="mt-4">
+              <TutorOperationForms
+                students={students.map((student) => ({
+                  id: student.id,
+                  label: `${student.first_name} ${student.last_name}`,
+                }))}
+                sessions={sessionsWithoutNotes.map((session) => {
+                  const student = relatedRecord(session.student);
+                  return {
+                    id: session.id,
+                    label: `${student?.first_name ?? "Student"} ${student?.last_name ?? ""} · ${formatDateTime(session.start_time, sessionTimeZones.get(session.id) ?? "UTC")}`,
+                  };
+                })}
+              />
+            </div>
+          )}
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {availability.length === 0 ? (
               <EmptyState>No availability windows have been added.</EmptyState>
