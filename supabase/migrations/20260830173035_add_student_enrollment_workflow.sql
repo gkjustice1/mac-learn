@@ -72,7 +72,7 @@ begin
     raise exception 'Student first name, last name, and grade level are required';
   end if;
 
-  if p_enterprise_status not in ('active', 'inactive') then
+  if p_enterprise_status is null or p_enterprise_status not in ('active', 'inactive') then
     raise exception 'New enrollment status must be active or inactive';
   end if;
 
