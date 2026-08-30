@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(21);
+select plan(22);
 
 insert into auth.users (id, email) values
   ('18000000-0000-4000-8000-000000000001', 'operations-admin@example.test'),
@@ -35,6 +35,7 @@ insert into public.role_assignments (user_id, role_key, organization_id, site_id
   ('18000000-0000-4000-8000-000000000001', 'platform_admin', null, null, 'active'),
   ('18000000-0000-4000-8000-000000000002', 'tutor', '28000000-0000-4000-8000-000000000001', '38000000-0000-4000-8000-000000000001', 'active'),
   ('18000000-0000-4000-8000-000000000002', 'tutor', '28000000-0000-4000-8000-000000000001', '38000000-0000-4000-8000-000000000003', 'active'),
+  ('18000000-0000-4000-8000-000000000002', 'tutor', '28000000-0000-4000-8000-000000000002', '38000000-0000-4000-8000-000000000002', 'active'),
   ('18000000-0000-4000-8000-000000000003', 'tutor', '28000000-0000-4000-8000-000000000002', '38000000-0000-4000-8000-000000000002', 'active');
 
 insert into public.students (
@@ -89,15 +90,12 @@ select is(
 );
 select is(
   (
-    select count(*)
-    from unnest(
-      (select site_ids from public.mac_platform_admin_tutor_options()
-       where id = '58000000-0000-4000-8000-000000000001')
-    ) site_id
-    where site_id is not null
+    select jsonb_array_length(scopes)
+    from public.mac_platform_admin_tutor_options()
+    where id = '58000000-0000-4000-8000-000000000001'
   ),
-  2::bigint,
-  'Tutor options include every active site scope'
+  3,
+  'Tutor options include every active organization and site scope'
 );
 select lives_ok(
   $$select public.mac_platform_admin_schedule_session(
@@ -120,6 +118,17 @@ select lives_ok(
     null
   )$$,
   'Platform Admin can schedule within any active Tutor site scope'
+);
+select lives_ok(
+  $$select public.mac_platform_admin_schedule_session(
+    '78000000-0000-4000-8000-000000000002',
+    '58000000-0000-4000-8000-000000000001',
+    '88000000-0000-4000-8000-000000000001',
+    now() + interval '1 day',
+    now() + interval '1 day 1 hour',
+    null
+  )$$,
+  'Platform Admin can schedule within a secondary Tutor organization scope'
 );
 select throws_ok(
   $$select public.mac_platform_admin_schedule_session(

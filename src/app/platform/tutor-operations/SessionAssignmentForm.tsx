@@ -10,7 +10,11 @@ type Student = {
   organization_id: string;
   site_id: string | null;
 };
-type Tutor = Omit<Student, "site_id"> & { site_ids: (string | null)[] };
+type Tutor = {
+  id: string;
+  label: string;
+  scopes: { organization_id: string; site_id: string | null }[];
+};
 type Option = { id: string; label: string };
 
 function Submit({ disabled, pending }: { disabled: boolean; pending: boolean }) {
@@ -44,10 +48,11 @@ export function SessionAssignmentForm({
       tutors.filter(
         (tutor) =>
           !student ||
-          (tutor.organization_id === student.organization_id &&
-            tutor.site_ids.some(
-              (siteId) => siteId === null || siteId === student.site_id,
-            )),
+          tutor.scopes.some(
+            (scope) =>
+              scope.organization_id === student.organization_id &&
+              (scope.site_id === null || scope.site_id === student.site_id),
+          ),
       ),
     [student, tutors],
   );

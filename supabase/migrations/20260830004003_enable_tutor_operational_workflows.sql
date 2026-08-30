@@ -65,8 +65,7 @@ create or replace function public.mac_platform_admin_tutor_options()
 returns table (
   id uuid,
   label text,
-  organization_id uuid,
-  site_ids uuid[]
+  scopes jsonb
 )
 language sql
 stable
@@ -76,8 +75,12 @@ as $tutors$
   select
     tutor.id,
     profile.full_name,
-    tutor.organization_id,
-    array_agg(distinct assignment.site_id) as site_ids
+    jsonb_agg(
+      distinct jsonb_build_object(
+        'organization_id', assignment.organization_id,
+        'site_id', assignment.site_id
+      )
+    ) as scopes
   from public.tutor_profiles tutor
   join public.profiles profile on profile.id = tutor.user_id
   join public.users enterprise_user on enterprise_user.id = profile.user_id
@@ -87,11 +90,10 @@ as $tutors$
    and assignment.status = 'active'
    and assignment.valid_from <= now()
    and (assignment.valid_until is null or assignment.valid_until > now())
-   and assignment.organization_id = tutor.organization_id
   where public.mac_is_platform_admin()
     and enterprise_user.account_status = 'active'
-    and tutor.organization_id is not null
-  group by tutor.id, profile.full_name, tutor.organization_id
+    and assignment.organization_id is not null
+  group by tutor.id, profile.full_name
   order by profile.full_name, tutor.id;
 $tutors$;
 
@@ -115,7 +117,6 @@ declare
   v_parent_id uuid;
   v_student_organization_id uuid;
   v_student_site_id uuid;
-  v_tutor_organization_id uuid;
   v_tutor_user_id uuid;
   v_session_id uuid;
 begin
@@ -140,8 +141,8 @@ begin
       using errcode = '22023';
   end if;
 
-  select tutor.organization_id, enterprise_user.id
-  into v_tutor_organization_id, v_tutor_user_id
+  select enterprise_user.id
+  into v_tutor_user_id
   from public.tutor_profiles tutor
   join public.profiles profile on profile.id = tutor.user_id
   join public.users enterprise_user on enterprise_user.id = profile.user_id
@@ -155,15 +156,23 @@ begin
         and assignment.status = 'active'
         and assignment.valid_from <= now()
         and (assignment.valid_until is null or assignment.valid_until > now())
-        and assignment.organization_id = tutor.organization_id
     );
 
-  if not found or v_tutor_organization_id is null then
+  if not found then
     raise exception 'active Tutor profile not found'
       using errcode = '22023';
   end if;
 
-  if v_tutor_organization_id is distinct from v_student_organization_id then
+  if not exists (
+    select 1
+    from public.role_assignments assignment
+    where assignment.user_id = v_tutor_user_id
+      and assignment.role_key = 'tutor'
+      and assignment.status = 'active'
+      and assignment.valid_from <= now()
+      and (assignment.valid_until is null or assignment.valid_until > now())
+      and assignment.organization_id = v_student_organization_id
+  ) then
     raise exception 'student and Tutor must belong to the same organization'
       using errcode = '42501';
   end if;

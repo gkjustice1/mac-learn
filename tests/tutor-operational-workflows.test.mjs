@@ -36,7 +36,7 @@ test("administrator and Tutor operational forms are connected to Server Actions"
   assert.match(adminForm, /new Date\(localValue\)\.toISOString\(\)/);
   assert.match(adminForm, /const \[state, action, pending\] = useActionState/);
   assert.match(adminForm, /<Submit disabled=\{unavailable\} pending=\{pending\}/);
-  assert.match(adminForm, /tutor\.site_ids\.some/);
+  assert.match(adminForm, /tutor\.scopes\.some/);
   assert.match(adminActions, /time-zone offset/);
   assert.match(adminActions, /mac_platform_admin_schedule_session/);
   assert.match(tutorForms, /A scheduled session is required/);
