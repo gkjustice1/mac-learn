@@ -16,6 +16,7 @@ type SearchFieldProps = {
   label: string;
   name: string;
   organizationId?: string | null;
+  siteId?: string | null;
   placeholder: string;
   required?: boolean;
   value: string;
@@ -28,6 +29,7 @@ function SearchField({
   label,
   name,
   organizationId = null,
+  siteId = null,
   placeholder,
   required = false,
   value,
@@ -43,7 +45,7 @@ function SearchField({
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       setLoading(true);
-      const result = await searchEnrollmentOptions(kind, query, organizationId);
+      const result = await searchEnrollmentOptions(kind, query, organizationId, siteId);
       if (!cancelled) {
         setOptions(result.options);
         setError(result.error);
@@ -54,7 +56,7 @@ function SearchField({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [disabled, kind, organizationId, query]);
+  }, [disabled, kind, organizationId, query, siteId]);
 
   return (
     <div className="grid gap-2">
@@ -202,7 +204,7 @@ export function StudentEnrollmentForm() {
           <label className="flex items-center gap-2 text-sm font-semibold"><input type="radio" name="guardian_mode" value="new" checked={guardianMode === 'new'} onChange={() => { setGuardianMode('new'); setGuardianUserId(""); }} /> Invite new guardian</label>
         </div>
         {guardianMode === "existing" ? (
-          <SearchField kind="guardian" label="Guardian" name="guardian_user_id" organizationId={organizationId} disabled={!organizationId || !siteId} value={guardianUserId} required placeholder="Search guardian name or email" onChange={setGuardianUserId} />
+          <SearchField kind="guardian" label="Guardian" name="guardian_user_id" organizationId={organizationId} siteId={siteId} disabled={!organizationId || !siteId} value={guardianUserId} required placeholder="Search guardian name or email" onChange={setGuardianUserId} />
         ) : (
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="grid gap-2 text-sm font-semibold">Guardian first name<input name="guardian_first_name" required value={fields.guardian_first_name} onChange={(e) => update('guardian_first_name', e.target.value)} className="rounded-xl border border-slate-300 px-4 py-3 font-normal" /></label>
