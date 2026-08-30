@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(26);
+select plan(28);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -70,6 +70,14 @@ select is(
      and constraint_definition.conname = 'students_parent_id_fkey'),
   'n',
   'deleting a guardian profile clears only the legacy reference'
+);
+select ok(
+  (select qual ilike '%site.timezone%' from pg_catalog.pg_policies where schemaname = 'public' and tablename = 'guardian_student_relationships' and policyname = 'Authenticated guardians view active educational relationships'),
+  'guardian relationship visibility uses the student site timezone'
+);
+select ok(
+  (select qual ilike '%site.timezone%' from pg_catalog.pg_policies where schemaname = 'public' and tablename = 'students' and policyname = 'Authenticated families view only related students'),
+  'family student visibility uses the student site timezone'
 );
 
 set local role authenticated;
