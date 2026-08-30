@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(34);
+select plan(37);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -9,7 +9,8 @@ insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000003', 'org-b-admin@example.test'),
   ('a1000000-0000-4000-8000-000000000004', 'guardian-a@example.test'),
   ('a1000000-0000-4000-8000-000000000005', 'guardian-b@example.test'),
-  ('a1000000-0000-4000-8000-000000000006', 'tutor-a@example.test');
+  ('a1000000-0000-4000-8000-000000000006', 'tutor-a@example.test'),
+  ('a1000000-0000-4000-8000-000000000007', 'legacy-admin@example.test');
 
 insert into public.organizations (id, name, slug) values
   ('b1000000-0000-4000-8000-000000000001', 'Enrollment Organization A', 'enrollment-org-a'),
@@ -41,7 +42,8 @@ insert into public.profiles (id, user_id, full_name, email, role, organization_i
   ('e1000000-0000-4000-8000-000000000003', 'a1000000-0000-4000-8000-000000000003', 'Organization B Admin', 'org-b-admin@example.test', 'admin', 'b1000000-0000-4000-8000-000000000002', null, 'd1000000-0000-4000-8000-000000000003', 'a1000000-0000-4000-8000-000000000003'),
   ('e1000000-0000-4000-8000-000000000004', 'a1000000-0000-4000-8000-000000000004', 'Guardian Alpha', 'guardian-a@example.test', 'parent', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', 'd1000000-0000-4000-8000-000000000004', 'a1000000-0000-4000-8000-000000000004'),
   ('e1000000-0000-4000-8000-000000000005', 'a1000000-0000-4000-8000-000000000005', 'Guardian Beta', 'guardian-b@example.test', 'parent', 'b1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000002', 'd1000000-0000-4000-8000-000000000005', 'a1000000-0000-4000-8000-000000000005'),
-  ('e1000000-0000-4000-8000-000000000006', 'a1000000-0000-4000-8000-000000000006', 'Tutor Alpha', 'tutor-a@example.test', 'tutor', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', 'd1000000-0000-4000-8000-000000000006', 'a1000000-0000-4000-8000-000000000006');
+  ('e1000000-0000-4000-8000-000000000006', 'a1000000-0000-4000-8000-000000000006', 'Tutor Alpha', 'tutor-a@example.test', 'tutor', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', 'd1000000-0000-4000-8000-000000000006', 'a1000000-0000-4000-8000-000000000006'),
+  ('e1000000-0000-4000-8000-000000000007', 'a1000000-0000-4000-8000-000000000007', 'Legacy Admin', 'legacy-admin@example.test', 'admin', 'b1000000-0000-4000-8000-000000000001', null, null, null);
 
 insert into public.role_assignments (user_id, organization_id, site_id, role_key, status) values
   ('a1000000-0000-4000-8000-000000000001', null, null, 'platform_admin', 'active'),
@@ -131,6 +133,21 @@ reset role;
 select is((select count(*) from public.student_enrollment_events where event_type = 'withdrawn'), 1::bigint, 'student withdrawal is recorded automatically');
 select is((select actor_user_id from public.student_enrollment_events where event_type = 'withdrawn'), 'a1000000-0000-4000-8000-000000000001'::uuid, 'status-change audit records the administrator actor');
 
+insert into public.students (first_name, last_name, grade_level, enterprise_status)
+values ('Legacy', 'Unscoped', 'Grade 4', 'active');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000007","role":"authenticated"}', true);
+select lives_ok(
+  $$update public.students set enterprise_status = 'inactive' where first_name = 'Legacy' and last_name = 'Unscoped'$$,
+  'legacy administrator can update an unscoped student during transition'
+);
+select lives_ok(
+  $$update public.students set enterprise_status = 'inactive' where first_name = 'Real' and last_name = 'Learner'$$,
+  'legacy administrator can update a scoped student without an enterprise users row'
+);
+reset role;
+select ok((select actor_user_id is null from public.student_enrollment_events where event_type = 'updated'), 'legacy status-change audit stores a null enterprise actor');
+
 update public.guardians
 set status = 'restricted'
 where person_id = 'd1000000-0000-4000-8000-000000000004';
@@ -208,7 +225,7 @@ reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
-select is((select count(*) from public.student_enrollment_events), 2::bigint, 'own organization admin can view enrollment audit');
+select is((select count(*) from public.student_enrollment_events), 3::bigint, 'own organization admin can view enrollment audit');
 reset role;
 
 set local role authenticated;
