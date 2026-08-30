@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(28);
+select plan(32);
 
 insert into auth.users (id, email) values
   ('a1000000-0000-4000-8000-000000000001', 'platform-enrollment@example.test'),
@@ -79,6 +79,23 @@ select ok(
   (select qual ilike '%mac_relationship_calendar_date%' from pg_catalog.pg_policies where schemaname = 'public' and tablename = 'students' and policyname = 'Authenticated families view only related students'),
   'family student visibility uses the student site timezone'
 );
+select ok(
+  has_function_privilege('authenticated', 'public.mac_admin_search_guardians(uuid,uuid,text)', 'EXECUTE'),
+  'authenticated users may call the authorized guardian search function'
+);
+select ok(
+  not has_function_privilege('anon', 'public.mac_admin_search_guardians(uuid,uuid,text)', 'EXECUTE'),
+  'anonymous users cannot call the guardian search function'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select is(
+  (select count(*) from public.mac_admin_search_guardians('b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', 'Guardian Alpha')),
+  1::bigint,
+  'platform administrator can search an enrollable guardian through the scoped RPC'
+);
+reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
@@ -116,6 +133,14 @@ select throws_ok(
 );
 reset role;
 select is((select status from public.guardians where person_id = 'd1000000-0000-4000-8000-000000000004'), 'restricted', 'enrollment does not reactivate a restricted guardian');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select is(
+  (select count(*) from public.mac_admin_search_guardians('b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', 'Guardian Alpha')),
+  0::bigint,
+  'restricted guardian is excluded from search results'
+);
+reset role;
 update public.guardians
 set status = 'active'
 where person_id = 'd1000000-0000-4000-8000-000000000004';
