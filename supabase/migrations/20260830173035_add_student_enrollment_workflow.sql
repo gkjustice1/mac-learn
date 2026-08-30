@@ -61,6 +61,7 @@ declare
   v_guardian_person_id uuid;
   v_guardian_profile_id uuid;
   v_guardian_id uuid;
+  v_site_timezone text;
 begin
   if auth.uid() is null or not public.mac_is_organization_admin(p_organization_id) then
     raise exception 'Not authorized to enroll students in this organization';
@@ -85,10 +86,6 @@ begin
     raise exception 'Enrollment start date is required';
   end if;
 
-  if p_enterprise_status = 'active' and p_enrollment_start_date > current_date then
-    raise exception 'A future enrollment must remain inactive until its start date';
-  end if;
-
   if not exists (
     select 1
     from public.organizations organization
@@ -98,14 +95,20 @@ begin
     raise exception 'The selected organization is not active';
   end if;
 
-  if not exists (
-    select 1
+  select site.timezone
+  into v_site_timezone
     from public.sites site
     where site.id = p_site_id
       and site.organization_id = p_organization_id
-      and site.status = 'active'
-  ) then
+      and site.status = 'active';
+
+  if v_site_timezone is null then
     raise exception 'The selected site is not active in this organization';
+  end if;
+
+  if p_enterprise_status = 'active'
+     and p_enrollment_start_date > (now() at time zone v_site_timezone)::date then
+    raise exception 'A future enrollment must remain inactive until its start date';
   end if;
 
   select enterprise_user.person_id, profile.id
