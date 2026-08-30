@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(18);
+select plan(19);
 
 insert into auth.users (id, email) values
   ('18000000-0000-4000-8000-000000000001', 'operations-admin@example.test'),
@@ -116,6 +116,26 @@ select is(
   'only the authorized session is created'
 );
 
+update public.sessions
+set start_time = now() - interval '2 hours',
+    end_time = now() - interval '1 hour'
+where student_id = '78000000-0000-4000-8000-000000000001';
+
+insert into public.sessions (
+  id, student_id, parent_id, tutor_id, subject_id,
+  start_time, end_time, duration_minutes, status
+) values (
+  '98000000-0000-4000-8000-000000000001',
+  '78000000-0000-4000-8000-000000000001',
+  '68000000-0000-4000-8000-000000000001',
+  '58000000-0000-4000-8000-000000000001',
+  '88000000-0000-4000-8000-000000000001',
+  now() + interval '1 day',
+  now() + interval '1 day 1 hour',
+  60,
+  'pending'
+);
+
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"18000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 
@@ -150,6 +170,18 @@ select lives_ok(
     from public.sessions session
     where session.student_id = '78000000-0000-4000-8000-000000000001'$$,
   'a Tutor can add a note to their assigned session'
+);
+select throws_ok(
+  $$insert into public.session_notes (session_id, tutor_id, attendance_status, skills_covered)
+    values (
+      '98000000-0000-4000-8000-000000000001',
+      '58000000-0000-4000-8000-000000000001',
+      'present',
+      'Premature note attempt'
+    )$$,
+  '42501',
+  'new row violates row-level security policy for table "session_notes"',
+  'direct Data API writes cannot create a note before the session ends'
 );
 select lives_ok(
   $$insert into public.progress_reports (student_id, tutor_id, subject_id, reporting_period, strengths)

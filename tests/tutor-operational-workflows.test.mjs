@@ -19,6 +19,8 @@ test("Tutor writes receive only the required authenticated grants", async () => 
   assert.match(migration, /grant insert on table[\s\S]*public\.session_notes/);
   assert.match(migration, /grant insert on table[\s\S]*public\.progress_reports/);
   assert.doesNotMatch(migration, /grant (all|insert).*public\.sessions/i);
+  assert.match(migration, /session\.end_time <= now\(\)/);
+  assert.match(migration, /drop policy if exists "Tutors write their session notes"/);
 });
 
 test("administrator and Tutor operational forms are connected to Server Actions", async () => {

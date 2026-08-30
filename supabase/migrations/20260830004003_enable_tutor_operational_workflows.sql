@@ -12,6 +12,23 @@ revoke insert on table
   public.progress_reports
 from anon;
 
+drop policy if exists "Tutors write their session notes"
+on public.session_notes;
+
+create policy "Tutors write their session notes"
+on public.session_notes for insert to authenticated
+with check (
+  tutor_id = public.mac_current_tutor_id()
+  and public.mac_tutor_owns_session(session_id)
+  and exists (
+    select 1
+    from public.sessions session
+    where session.id = session_notes.session_id
+      and session.tutor_id = public.mac_current_tutor_id()
+      and session.end_time <= now()
+  )
+);
+
 alter table public.tutor_availability
   add constraint tutor_availability_valid_window
   check (end_time > start_time)
