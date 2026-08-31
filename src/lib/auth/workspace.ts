@@ -19,6 +19,8 @@ export function resolveWorkspacePath(
       return "/tutor";
     case "guardian":
       return "/family";
+    case "student":
+      return "/student";
     default:
       return null;
   }
@@ -33,4 +35,5 @@ export const ENTERPRISE_WORKSPACE_ROLES: readonly MacRole[] = [
   "teacher",
   "tutor",
   "guardian",
+  "student",
 ];
