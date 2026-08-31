@@ -33,10 +33,14 @@ test("Student sessions use tenant timezones and to-one subject relations", async
     read("src/app/student/page.tsx"),
     read("supabase/migrations/20260831153000_add_student_workspace_access.sql"),
   ]);
-  assert.match(page, /organizationTimeZone/);
+  assert.match(page, /organizationIds = \[\.\.\.new Set/);
+  assert.match(page, /organizationTimeZones/);
+  assert.match(page, /\.in\("organization_id", organizationIds\)/);
   assert.match(page, /siteTimeZones/);
   assert.match(page, /timeZoneForStudent\(session\.student_id\)/);
   assert.match(page, /relatedRecord\(session\.subject\)/);
   assert.match(migration, /"Students view their assigned sites"/);
   assert.match(migration, /"Students view their organization configuration"/);
+  assert.match(migration, /student\.enrollment_start_date <= public\.mac_relationship_calendar_date/);
+  assert.match(migration, /student\.enrollment_end_date >= public\.mac_relationship_calendar_date/);
 });
