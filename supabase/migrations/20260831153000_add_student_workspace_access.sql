@@ -45,9 +45,36 @@ create policy "Students view their progress reports"
 on public.progress_reports for select to authenticated
 using (student_id in (select public.mac_current_student_ids()));
 
+drop policy if exists "Students view their assigned organizations" on public.organizations;
+create policy "Students view their assigned organizations"
+on public.organizations for select to authenticated
+using (exists (
+  select 1 from public.students student
+  where student.id in (select public.mac_current_student_ids())
+    and student.organization_id = organizations.id
+));
+
+drop policy if exists "Students view their assigned sites" on public.sites;
+create policy "Students view their assigned sites"
+on public.sites for select to authenticated
+using (
+  public.mac_has_role('student', organization_id, id)
+  or public.mac_has_role('student', organization_id, null)
+);
+
+drop policy if exists "Students view their organization configuration" on public.organization_configurations;
+create policy "Students view their organization configuration"
+on public.organization_configurations for select to authenticated
+using (exists (
+  select 1 from public.students student
+  where student.id in (select public.mac_current_student_ids())
+    and student.organization_id = organization_configurations.organization_id
+));
+
 grant select on public.students, public.sessions, public.homework_uploads,
   public.progress_reports, public.classrooms, public.classroom_student_enrollments,
-  public.educator_instructional_records, public.subjects to authenticated;
+  public.educator_instructional_records, public.subjects, public.organizations,
+  public.sites, public.organization_configurations to authenticated;
 revoke insert, update, delete on public.homework_uploads from authenticated;
 
 create or replace function public.mac_student_feedback()
