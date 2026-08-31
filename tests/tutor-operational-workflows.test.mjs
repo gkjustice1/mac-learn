@@ -73,3 +73,24 @@ test("Tutor note choices exclude sessions that already have a note", async () =>
   assert.match(actions, /Session notes can only be created after the session ends/);
   assert.match(actions, /\.eq\("tutor_id", tutorId\)/);
 });
+
+
+test("elapsed attendance notes complete sessions with append-only audit history", async () => {
+  const [migration, databaseTest] = await Promise.all([
+    read("supabase/migrations/20260831135200_complete_elapsed_sessions_from_notes.sql"),
+    read("supabase/tests/tutor_operational_workflows.test.sql"),
+  ]);
+  assert.match(migration, /create table public\.session_status_events/);
+  assert.match(migration, /after insert on public\.session_notes/);
+  assert.match(migration, /session\.end_time <= now\(\)/);
+  assert.match(migration, /session\.status in \('pending', 'confirmed'\)/);
+  assert.match(migration, /set status = 'completed'/);
+  assert.match(migration, /after update of status on public\.sessions/);
+  assert.match(migration, /actor_user_id[\s\S]*\(select auth\.uid\(\)\)/);
+  assert.match(migration, /revoke all on table public\.session_status_events/);
+  assert.match(migration, /grant select on table public\.session_status_events to authenticated/);
+  assert.match(databaseTest, /saving attendance atomically completes the elapsed session/);
+  assert.match(databaseTest, /session completion preserves the Tutor attendance note/);
+  assert.match(databaseTest, /session completion records the actor, transition, reason, and immutable history/);
+  assert.match(databaseTest, /does not change an unrelated future session/);
+});
