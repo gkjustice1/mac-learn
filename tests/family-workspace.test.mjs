@@ -24,6 +24,8 @@ test("Family workspace reads only RLS-protected and parent-facing data", async (
   assert.match(page, /\.in\("student_id", studentIds\)/);
   assert.doesNotMatch(page, /\.from\("students"\)/);
   assert.match(page, /\.in\("status", \["pending", "confirmed"\]\)/);
+  assert.match(page, /\.gte\("start_time", "now"\)/);
+  assert.doesNotMatch(page, /\.gte\("end_time", "now"\)/);
   assert.doesNotMatch(page, /\.from\("session_notes"\)/);
   assert.doesNotMatch(page, /performance_notes|internal_notes|createAdminClient|service_role/);
 });
