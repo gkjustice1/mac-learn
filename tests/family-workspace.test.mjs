@@ -44,6 +44,7 @@ test("Family migration preserves canonical tenant and role boundaries", async ()
   assert.match(migration, /enterprise_user\.account_status = 'active'/);
   assert.match(migration, /mac_has_role\('guardian'/);
   assert.match(migration, /create policy "Authenticated families view only related students"[\s\S]*mac_family_can_access_student\(id\)/);
+  assert.match(migration, /legacy_parent\.user_id = \(select auth\.uid\(\)\)[\s\S]*mac_can_use_legacy_admin_access\(\)/);
   assert.match(migration, /drop policy if exists "Admins manage sessions"/);
   assert.match(migration, /mac_can_use_legacy_admin_access\(\)/);
   assert.match(migration, /revoke all on function public\.mac_family_session_summaries\(\)[\s\S]*from public, anon/);

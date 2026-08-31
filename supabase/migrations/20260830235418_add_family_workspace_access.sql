@@ -98,6 +98,7 @@ using (
     from public.profiles legacy_parent
     where legacy_parent.id = students.parent_id
       and legacy_parent.user_id = (select auth.uid())
+      and public.mac_can_use_legacy_admin_access()
       and public.mac_can_use_legacy_family_link(
         coalesce(students.organization_id, legacy_parent.organization_id)
       )
