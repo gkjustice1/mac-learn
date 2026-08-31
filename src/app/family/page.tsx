@@ -87,7 +87,7 @@ export default async function FamilyPage() {
         ? supabase.from("sessions").select("id, student_id, start_time, end_time, status, zoom_link, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)").in("student_id", studentIds).order("start_time", { ascending: true })
         : Promise.resolve({ data: [], error: null }),
       studentIds.length > 0
-        ? supabase.from("sessions").select("id", { count: "exact", head: true }).in("student_id", studentIds).in("status", ["pending", "confirmed"]).gte("end_time", "now")
+        ? supabase.from("sessions").select("id", { count: "exact", head: true }).in("student_id", studentIds).in("status", ["pending", "confirmed"]).gte("start_time", "now")
         : Promise.resolve({ data: null, error: null, count: 0 }),
       supabase.rpc("mac_family_session_summaries"),
       studentIds.length > 0
