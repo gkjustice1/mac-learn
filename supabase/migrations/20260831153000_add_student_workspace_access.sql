@@ -20,8 +20,20 @@ as $$
   where enterprise_user.id = (select auth.uid())
     and enterprise_user.account_status = 'active'
     and student.enterprise_status = 'active'
-    and (student.enrollment_start_date is null or student.enrollment_start_date <= current_date)
-    and (student.enrollment_end_date is null or student.enrollment_end_date >= current_date)
+    and (
+      student.enrollment_start_date is null
+      or student.enrollment_start_date <= public.mac_relationship_calendar_date(
+        student.id,
+        student.organization_id
+      )
+    )
+    and (
+      student.enrollment_end_date is null
+      or student.enrollment_end_date >= public.mac_relationship_calendar_date(
+        student.id,
+        student.organization_id
+      )
+    )
     and assignment.status = 'active'
     and assignment.valid_from <= now()
     and (assignment.valid_until is null or assignment.valid_until > now())
