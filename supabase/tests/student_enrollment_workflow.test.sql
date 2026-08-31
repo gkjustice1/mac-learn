@@ -102,7 +102,7 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 select lives_ok(
-  $$select public.mac_admin_enroll_student('Real', 'Learner', 'Grade 4', 'Example Elementary', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, 'active', 'a1000000-0000-4000-8000-000000000004', 'parent_guardian')$$,
+  $$select public.mac_admin_enroll_student('Real', 'Learner', 'Grade 4', 'Example Elementary', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', (now() at time zone 'America/New_York')::date, 'active', 'a1000000-0000-4000-8000-000000000004', 'parent_guardian')$$,
   'platform admin enrolls a student with an invited guardian'
 );
 reset role;
@@ -121,7 +121,7 @@ select is(
   'r',
   'student deletion is restricted to preserve enrollment audit history'
 );
-select ok((select enterprise_status = 'active' and enrollment_start_date = current_date from public.students where first_name = 'Real'), 'status and enrollment date are preserved');
+select ok((select enterprise_status = 'active' and enrollment_start_date = (now() at time zone 'America/New_York')::date from public.students where first_name = 'Real'), 'status and enrollment date are preserved');
 select is((select parent_id from public.students where first_name = 'Real'), null::uuid, 'canonical enrollment is decoupled from the guardian login profile');
 
 set local role authenticated;
@@ -154,7 +154,7 @@ where person_id = 'd1000000-0000-4000-8000-000000000004';
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Restricted', 'Guardian', 'Grade 4', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, 'active', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  $$select public.mac_admin_enroll_student('Restricted', 'Guardian', 'Grade 4', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', (now() at time zone 'America/New_York')::date, 'active', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
   'P0001', 'The selected guardian is not active and must be reactivated separately', 'restricted guardian cannot be used for a new enrollment'
 );
 reset role;
@@ -174,7 +174,7 @@ where person_id = 'd1000000-0000-4000-8000-000000000004';
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Cross', 'Tenant', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000002', current_date, 'active', 'a1000000-0000-4000-8000-000000000005', 'guardian')$$,
+  $$select public.mac_admin_enroll_student('Cross', 'Tenant', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000002', (now() at time zone 'America/New_York')::date, 'active', 'a1000000-0000-4000-8000-000000000005', 'guardian')$$,
   'P0001', 'Not authorized to enroll students in this organization', 'organization admin cannot enroll across tenants'
 );
 reset role;
@@ -182,11 +182,11 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Wrong', 'Site', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000002', current_date, 'active', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  $$select public.mac_admin_enroll_student('Wrong', 'Site', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000002', (now() at time zone 'America/New_York')::date, 'active', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
   'P0001', 'The selected site is not active in this organization', 'cross-tenant site is rejected'
 );
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Wrong', 'Guardian', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, 'active', 'a1000000-0000-4000-8000-000000000005', 'guardian')$$,
+  $$select public.mac_admin_enroll_student('Wrong', 'Guardian', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', (now() at time zone 'America/New_York')::date, 'active', 'a1000000-0000-4000-8000-000000000005', 'guardian')$$,
   'P0001', 'The selected guardian is not invited or active in this organization and site', 'cross-tenant guardian is rejected'
 );
 reset role;
@@ -194,7 +194,7 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000006","role":"authenticated"}', true);
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Unauthorized', 'Student', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, 'active', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  $$select public.mac_admin_enroll_student('Unauthorized', 'Student', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', (now() at time zone 'America/New_York')::date, 'active', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
   'P0001', 'Not authorized to enroll students in this organization', 'Tutor cannot enroll students'
 );
 select throws_ok(
@@ -206,19 +206,19 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Invalid', 'Status', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, 'withdrawn', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  $$select public.mac_admin_enroll_student('Invalid', 'Status', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', (now() at time zone 'America/New_York')::date, 'withdrawn', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
   'P0001', 'New enrollment status must be active or inactive', 'unsupported initial status is rejected'
 );
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Null', 'Status', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, null, 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  $$select public.mac_admin_enroll_student('Null', 'Status', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', (now() at time zone 'America/New_York')::date, null, 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
   'P0001', 'New enrollment status must be active or inactive', 'null initial status is rejected'
 );
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Invalid', 'Relationship', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date, 'active', 'a1000000-0000-4000-8000-000000000004', 'unsupported')$$,
+  $$select public.mac_admin_enroll_student('Invalid', 'Relationship', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', (now() at time zone 'America/New_York')::date, 'active', 'a1000000-0000-4000-8000-000000000004', 'unsupported')$$,
   'P0001', 'Guardian relationship type is invalid', 'unsupported guardian relationship is rejected'
 );
 select throws_ok(
-  $$select public.mac_admin_enroll_student('Future', 'Inactive', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', current_date + 1, 'inactive', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
+  $$select public.mac_admin_enroll_student('Future', 'Inactive', 'Grade 5', '', 'b1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001', (now() at time zone 'America/New_York')::date + 1, 'inactive', 'a1000000-0000-4000-8000-000000000004', 'guardian')$$,
   'P0001', 'Enrollment start date cannot be in the future', 'future enrollment is rejected until scheduling activation exists'
 );
 reset role;
