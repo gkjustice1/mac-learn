@@ -35,31 +35,35 @@ export default async function StudentPage() {
   const studentsResult = await supabase.rpc("mac_current_student_ids");
   if (studentsResult.error) throw new Error(`Unable to load Student workspace: ${studentsResult.error.message}`);
   const studentIds = (studentsResult.data ?? []) as string[];
-  const [studentsResult2, sessionsResult, assignmentsResult, contentResult, feedbackResult, progressResult, configurationsResult, sitesResult] = await Promise.all([
-    studentIds.length ? supabase.from("students").select("id, first_name, last_name, grade_level, school_name, organization_id, primary_site_id").in("id", studentIds) : Promise.resolve({ data: [], error: null }),
+  const studentsResult2 = studentIds.length
+    ? await supabase.from("students").select("id, first_name, last_name, grade_level, school_name, organization_id, primary_site_id").in("id", studentIds)
+    : { data: [], error: null };
+  if (studentsResult2.error) throw new Error(`Unable to load Student workspace: ${studentsResult2.error.message}`);
+  const students = studentsResult2.data ?? [];
+  const organizationIds = [...new Set(students.map((student) => student.organization_id))];
+  const [sessionsResult, assignmentsResult, contentResult, feedbackResult, progressResult, configurationsResult, sitesResult] = await Promise.all([
     studentIds.length ? supabase.from("sessions").select("id, student_id, start_time, end_time, status, zoom_link, subject:subjects(name)").in("student_id", studentIds).order("start_time", { ascending: true }) : Promise.resolve({ data: [], error: null }),
     studentIds.length ? supabase.from("homework_uploads").select("id, student_id, file_name, file_url, notes, created_at, subject:subjects(name)").in("student_id", studentIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
     studentIds.length ? supabase.from("educator_instructional_records").select("id, student_id, record_type, content, occurred_on").in("student_id", studentIds).order("occurred_on", { ascending: false }) : Promise.resolve({ data: [], error: null }),
     supabase.rpc("mac_student_feedback"),
     studentIds.length ? supabase.from("progress_reports").select("id, student_id, reporting_period, strengths, areas_for_improvement, skills_mastered, next_goals, comments, created_at, subject:subjects(name)").in("student_id", studentIds).order("created_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
-    supabase.from("organization_configurations").select("organization_id, default_timezone").eq("organization_id", assignment.organizationId),
-    supabase.from("sites").select("id, timezone").eq("organization_id", assignment.organizationId),
+    organizationIds.length ? supabase.from("organization_configurations").select("organization_id, default_timezone").in("organization_id", organizationIds) : Promise.resolve({ data: [], error: null }),
+    organizationIds.length ? supabase.from("sites").select("id, organization_id, timezone").in("organization_id", organizationIds) : Promise.resolve({ data: [], error: null }),
   ]);
-  const failure = [studentsResult2, sessionsResult, assignmentsResult, contentResult, feedbackResult, progressResult, configurationsResult, sitesResult].find((result) => result.error);
+  const failure = [sessionsResult, assignmentsResult, contentResult, feedbackResult, progressResult, configurationsResult, sitesResult].find((result) => result.error);
   if (failure?.error) throw new Error(`Unable to load Student workspace: ${failure.error.message}`);
-  const students = studentsResult2.data ?? [];
   const sessions = sessionsResult.data ?? [];
   const assignments = assignmentsResult.data ?? [];
   const content = contentResult.data ?? [];
   const feedback = (feedbackResult.data ?? []) as StudentFeedback[];
   const progress = progressResult.data ?? [];
   const firstStudent = students[0];
-  const organizationTimeZone = configurationsResult.data?.[0]?.default_timezone ?? "UTC";
+  const organizationTimeZones = new Map((configurationsResult.data ?? []).map((configuration) => [configuration.organization_id, configuration.default_timezone]));
   const siteTimeZones = new Map((sitesResult.data ?? []).map((site) => [site.id, site.timezone]));
   const studentScopes = new Map(students.map((student) => [student.id, student]));
   const timeZoneForStudent = (studentId: string) => {
     const student = studentScopes.get(studentId);
-    return (student?.primary_site_id ? siteTimeZones.get(student.primary_site_id) : undefined) ?? organizationTimeZone;
+    return (student?.primary_site_id ? siteTimeZones.get(student.primary_site_id) : undefined) ?? (student?.organization_id ? organizationTimeZones.get(student.organization_id) : undefined) ?? "UTC";
   };
 
   return <main className="min-h-screen bg-slate-50 text-slate-950">
