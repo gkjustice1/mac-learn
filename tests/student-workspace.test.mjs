@@ -47,3 +47,13 @@ test("Student sessions use tenant timezones and to-one subject relations", async
   assert.match(migration, /enrollment\.enrolled_from <= public\.mac_relationship_calendar_date/);
   assert.match(migration, /enrollment\.enrolled_until >= public\.mac_relationship_calendar_date/);
 });
+
+test("Student records show nullable status fallbacks and organization/site scope", async () => {
+  const page = await read("src/app/student/page.tsx");
+  assert.match(page, /\(session\.status \?\? "unspecified"\)\.replaceAll\("_", " "\)/);
+  assert.match(page, /from\("organizations"\)\.select\("id, name"\)/);
+  assert.match(page, /from\("sites"\)\.select\("id, organization_id, name, timezone"\)/);
+  assert.match(page, /const scopeLabelForStudent =/);
+  assert.match(page, /student_id: string/);
+  assert.equal((page.match(/scopeLabelForStudent\((?:session|item|report)\.student_id\)/g) ?? []).length, 5);
+});
