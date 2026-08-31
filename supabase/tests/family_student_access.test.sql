@@ -42,7 +42,9 @@ select ok(has_table_privilege('authenticated','public.students','select') and ha
 select ok(
   has_table_privilege('authenticated','public.sessions','select')
   and has_table_privilege('authenticated','public.progress_reports','select')
+  and has_function_privilege('authenticated','public.mac_family_students()','execute')
   and has_function_privilege('authenticated','public.mac_family_session_summaries()','execute')
+  and not has_function_privilege('anon','public.mac_family_students()','execute')
   and not has_function_privilege('anon','public.mac_family_session_summaries()','execute'),
   'the Family read model is available only to authenticated callers'
 );

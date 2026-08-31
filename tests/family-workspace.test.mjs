@@ -16,10 +16,13 @@ test("guardian assignments route to the Family workspace", async () => {
 
 test("Family workspace reads only RLS-protected and parent-facing data", async () => {
   const page = await read("src/app/family/page.tsx");
-  for (const table of ["students", "sessions", "progress_reports"]) {
+  for (const table of ["sessions", "progress_reports"]) {
     assert.match(page, new RegExp(`\\.from\\("${table}"\\)`));
   }
+  assert.match(page, /\.rpc\("mac_family_students"\)/);
   assert.match(page, /\.rpc\("mac_family_session_summaries"\)/);
+  assert.match(page, /\.in\("student_id", studentIds\)/);
+  assert.doesNotMatch(page, /\.from\("students"\)/);
   assert.match(page, /\.in\("status", \["pending", "confirmed"\]\)/);
   assert.doesNotMatch(page, /\.from\("session_notes"\)/);
   assert.doesNotMatch(page, /performance_notes|internal_notes|createAdminClient|service_role/);
@@ -35,6 +38,7 @@ test("Family workspace exposes the requested sections", async () => {
 test("Family migration preserves canonical tenant and role boundaries", async () => {
   const migration = await read("supabase/migrations/20260830235418_add_family_workspace_access.sql");
   assert.match(migration, /mac_family_can_access_student/);
+  assert.match(migration, /mac_family_students/);
   assert.match(migration, /guardian_student_relationships/);
   assert.match(migration, /relationship\.educational_access/);
   assert.match(migration, /enterprise_user\.account_status = 'active'/);

@@ -39,6 +39,14 @@ type StudentScope = {
   primary_site_id: string | null;
 };
 
+type FamilyStudent = StudentScope & {
+  id: string;
+  first_name: string;
+  last_name: string;
+  grade_level: string;
+  school_name: string | null;
+};
+
 export default async function FamilyPage() {
   const context = await getAuthorizationContext();
   const assignment = context.roles.find((role) => role.role === "guardian");
@@ -57,7 +65,7 @@ export default async function FamilyPage() {
   const organizationIds = [
     ...new Set(guardianAssignments.map((role) => role.organizationId as string)),
   ];
-  const [organizationResult, configurationsResult, siteResult, scopeSitesResult, studentsResult, sessionsResult, upcomingSessionsResult, summariesResult, reportsResult] =
+  const [organizationResult, configurationsResult, siteResult, scopeSitesResult, studentsResult] =
     await Promise.all([
       supabase.from("organizations").select("name").eq("id", assignment.organizationId).maybeSingle(),
       supabase.from("organization_configurations").select("organization_id, default_timezone").in("organization_id", organizationIds),
@@ -65,17 +73,30 @@ export default async function FamilyPage() {
         ? supabase.from("sites").select("name, timezone").eq("id", assignment.siteId).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
       supabase.from("sites").select("id, organization_id, timezone").in("organization_id", organizationIds),
-      supabase.from("students").select("id, first_name, last_name, grade_level, school_name, organization_id, primary_site_id").order("last_name").order("first_name"),
-      supabase.from("sessions").select("id, student_id, start_time, end_time, status, zoom_link, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)").order("start_time", { ascending: true }),
-      supabase.from("sessions").select("id", { count: "exact", head: true }).in("status", ["pending", "confirmed"]).gte("end_time", "now"),
-      supabase.rpc("mac_family_session_summaries"),
-      supabase.from("progress_reports").select("id, student_id, reporting_period, strengths, areas_for_improvement, skills_mastered, next_goals, comments, created_at, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)").order("created_at", { ascending: false }),
+      supabase.rpc("mac_family_students"),
     ]);
 
-  const failed = [organizationResult, configurationsResult, siteResult, scopeSitesResult, studentsResult, sessionsResult, upcomingSessionsResult, summariesResult, reportsResult].find((result) => result.error);
-  if (failed?.error) throw new Error(`Unable to load Family workspace: ${failed.error.message}`);
+  const initialFailure = [organizationResult, configurationsResult, siteResult, scopeSitesResult, studentsResult].find((result) => result.error);
+  if (initialFailure?.error) throw new Error(`Unable to load Family workspace: ${initialFailure.error.message}`);
 
-  const students = studentsResult.data ?? [];
+  const students = (studentsResult.data ?? []) as FamilyStudent[];
+  const studentIds = students.map((student) => student.id);
+  const [sessionsResult, upcomingSessionsResult, summariesResult, reportsResult] =
+    await Promise.all([
+      studentIds.length > 0
+        ? supabase.from("sessions").select("id, student_id, start_time, end_time, status, zoom_link, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)").in("student_id", studentIds).order("start_time", { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
+      studentIds.length > 0
+        ? supabase.from("sessions").select("id", { count: "exact", head: true }).in("student_id", studentIds).in("status", ["pending", "confirmed"]).gte("end_time", "now")
+        : Promise.resolve({ data: null, error: null, count: 0 }),
+      supabase.rpc("mac_family_session_summaries"),
+      studentIds.length > 0
+        ? supabase.from("progress_reports").select("id, student_id, reporting_period, strengths, areas_for_improvement, skills_mastered, next_goals, comments, created_at, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)").in("student_id", studentIds).order("created_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+  const scopedFailure = [sessionsResult, upcomingSessionsResult, summariesResult, reportsResult].find((result) => result.error);
+  if (scopedFailure?.error) throw new Error(`Unable to load Family workspace: ${scopedFailure.error.message}`);
+
   const sessions = sessionsResult.data ?? [];
   const summaries = (summariesResult.data ?? []) as FamilySessionSummary[];
   const reports = reportsResult.data ?? [];

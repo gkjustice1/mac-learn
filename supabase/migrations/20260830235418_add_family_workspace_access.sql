@@ -168,6 +168,40 @@ for select
 to authenticated
 using (public.mac_family_can_access_student(student_id));
 
+create or replace function public.mac_family_students()
+returns table (
+  id uuid,
+  first_name text,
+  last_name text,
+  grade_level text,
+  school_name text,
+  organization_id uuid,
+  primary_site_id uuid
+)
+language sql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+  select
+    student.id,
+    student.first_name,
+    student.last_name,
+    student.grade_level,
+    student.school_name,
+    student.organization_id,
+    student.primary_site_id
+  from public.students student
+  where (select auth.uid()) is not null
+    and public.mac_family_can_access_student(student.id)
+  order by student.last_name, student.first_name;
+$$;
+
+revoke all on function public.mac_family_students()
+from public, anon;
+grant execute on function public.mac_family_students()
+to authenticated;
+
 create or replace function public.mac_family_session_summaries()
 returns table (
   id uuid,
