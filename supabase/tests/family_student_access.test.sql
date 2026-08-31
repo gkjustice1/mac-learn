@@ -16,6 +16,7 @@ insert into public.profiles (id,user_id,full_name,email,organization_id) values
 ('64000000-0000-4000-8000-000000000001','14000000-0000-4000-8000-000000000001','Legacy Parent','family-access@example.test','24000000-0000-4000-8000-000000000001'),
 ('64000000-0000-4000-8000-000000000002','14000000-0000-4000-8000-000000000002','Legacy Admin','legacy-parent@example.test','24000000-0000-4000-8000-000000000001');
 update public.profiles set role='admin' where id='64000000-0000-4000-8000-000000000002';
+update public.profiles set role='admin' where id='64000000-0000-4000-8000-000000000001';
 insert into public.role_assignments (user_id,role_key,organization_id,site_id,status) values
 ('14000000-0000-4000-8000-000000000001','guardian','24000000-0000-4000-8000-000000000001',null,'active');
 insert into public.guardians (id,organization_id,person_id,status) values ('44000000-0000-4000-8000-000000000001','24000000-0000-4000-8000-000000000001','34000000-0000-4000-8000-000000000001','active');

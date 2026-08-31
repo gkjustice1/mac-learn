@@ -34,6 +34,11 @@ type FamilySessionSummary = {
   created_at: string;
 };
 
+type StudentScope = {
+  organization_id: string;
+  primary_site_id: string | null;
+};
+
 export default async function FamilyPage() {
   const context = await getAuthorizationContext();
   const assignment = context.roles.find((role) => role.role === "guardian");
@@ -46,29 +51,55 @@ export default async function FamilyPage() {
   });
 
   const supabase = await createClient();
-  const [organizationResult, configurationResult, siteResult, studentsResult, sessionsResult, upcomingSessionsResult, summariesResult, reportsResult] =
+  const guardianAssignments = context.roles.filter(
+    (role) => role.role === "guardian" && role.organizationId
+  );
+  const organizationIds = [
+    ...new Set(guardianAssignments.map((role) => role.organizationId as string)),
+  ];
+  const [organizationResult, configurationsResult, siteResult, scopeSitesResult, studentsResult, sessionsResult, upcomingSessionsResult, summariesResult, reportsResult] =
     await Promise.all([
       supabase.from("organizations").select("name").eq("id", assignment.organizationId).maybeSingle(),
-      supabase.from("organization_configurations").select("default_timezone").eq("organization_id", assignment.organizationId).maybeSingle(),
+      supabase.from("organization_configurations").select("organization_id, default_timezone").in("organization_id", organizationIds),
       assignment.siteId
         ? supabase.from("sites").select("name, timezone").eq("id", assignment.siteId).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      supabase.from("students").select("id, first_name, last_name, grade_level, school_name").order("last_name").order("first_name"),
-      supabase.from("sessions").select("id, student_id, start_time, end_time, status, zoom_link, student:students(first_name, last_name), subject:subjects(name)").order("start_time", { ascending: true }),
-      supabase.from("sessions").select("id", { count: "exact", head: true }).gte("end_time", "now"),
+      supabase.from("sites").select("id, organization_id, timezone").in("organization_id", organizationIds),
+      supabase.from("students").select("id, first_name, last_name, grade_level, school_name, organization_id, primary_site_id").order("last_name").order("first_name"),
+      supabase.from("sessions").select("id, student_id, start_time, end_time, status, zoom_link, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)").order("start_time", { ascending: true }),
+      supabase.from("sessions").select("id", { count: "exact", head: true }).in("status", ["pending", "confirmed"]).gte("end_time", "now"),
       supabase.rpc("mac_family_session_summaries"),
-      supabase.from("progress_reports").select("id, student_id, reporting_period, strengths, areas_for_improvement, skills_mastered, next_goals, comments, created_at, student:students(first_name, last_name), subject:subjects(name)").order("created_at", { ascending: false }),
+      supabase.from("progress_reports").select("id, student_id, reporting_period, strengths, areas_for_improvement, skills_mastered, next_goals, comments, created_at, student:students(first_name, last_name, organization_id, primary_site_id), subject:subjects(name)").order("created_at", { ascending: false }),
     ]);
 
-  const failed = [organizationResult, configurationResult, siteResult, studentsResult, sessionsResult, upcomingSessionsResult, summariesResult, reportsResult].find((result) => result.error);
+  const failed = [organizationResult, configurationsResult, siteResult, scopeSitesResult, studentsResult, sessionsResult, upcomingSessionsResult, summariesResult, reportsResult].find((result) => result.error);
   if (failed?.error) throw new Error(`Unable to load Family workspace: ${failed.error.message}`);
 
   const students = studentsResult.data ?? [];
   const sessions = sessionsResult.data ?? [];
   const summaries = (summariesResult.data ?? []) as FamilySessionSummary[];
   const reports = reportsResult.data ?? [];
-  const timeZone = siteResult.data?.timezone ?? configurationResult.data?.default_timezone ?? "UTC";
+  const organizationTimeZones = new Map(
+    (configurationsResult.data ?? []).map((configuration) => [
+      configuration.organization_id,
+      configuration.default_timezone,
+    ])
+  );
+  const siteTimeZones = new Map(
+    (scopeSitesResult.data ?? []).map((site) => [site.id, site.timezone])
+  );
+  const timeZoneForStudent = (student: StudentScope | null) =>
+    (student?.primary_site_id
+      ? siteTimeZones.get(student.primary_site_id)
+      : undefined) ??
+    (student?.organization_id
+      ? organizationTimeZones.get(student.organization_id)
+      : undefined) ??
+    "UTC";
   const studentNames = new Map(students.map((student) => [student.id, `${student.first_name} ${student.last_name}`]));
+  const studentTimeZones = new Map(
+    students.map((student) => [student.id, timeZoneForStudent(student)])
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -118,14 +149,14 @@ export default async function FamilyPage() {
         <section id="sessions" className="scroll-mt-6">
           <h2 className="text-xl font-bold">Scheduled sessions</h2>
           <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {sessions.length === 0 ? <div className="p-5"><EmptyState>No sessions are scheduled.</EmptyState></div> : <div className="overflow-x-auto"><table className="w-full border-collapse text-left text-sm"><thead className="bg-slate-100 text-slate-600"><tr>{["Student", "Subject", "Starts", "Status", "Meeting"].map((heading) => <th key={heading} className="px-4 py-3 font-semibold">{heading}</th>)}</tr></thead><tbody className="divide-y divide-slate-200">{sessions.map((session) => { const student = relatedRecord(session.student); const subject = relatedRecord(session.subject); return <tr key={session.id}><td className="px-4 py-4 font-medium">{student?.first_name} {student?.last_name}</td><td className="px-4 py-4">{subject?.name ?? "General tutoring"}</td><td className="px-4 py-4">{formatDateTime(session.start_time, timeZone)}</td><td className="px-4 py-4 capitalize">{(session.status ?? "unspecified").replaceAll("_", " ")}</td><td className="px-4 py-4">{session.zoom_link ? <a href={session.zoom_link} className="font-semibold text-lime-700 underline">Join</a> : "Not added"}</td></tr>; })}</tbody></table></div>}
+            {sessions.length === 0 ? <div className="p-5"><EmptyState>No sessions are scheduled.</EmptyState></div> : <div className="overflow-x-auto"><table className="w-full border-collapse text-left text-sm"><thead className="bg-slate-100 text-slate-600"><tr>{["Student", "Subject", "Starts", "Status", "Meeting"].map((heading) => <th key={heading} className="px-4 py-3 font-semibold">{heading}</th>)}</tr></thead><tbody className="divide-y divide-slate-200">{sessions.map((session) => { const student = relatedRecord(session.student); const subject = relatedRecord(session.subject); return <tr key={session.id}><td className="px-4 py-4 font-medium">{student?.first_name} {student?.last_name}</td><td className="px-4 py-4">{subject?.name ?? "General tutoring"}</td><td className="px-4 py-4">{formatDateTime(session.start_time, timeZoneForStudent(student))}</td><td className="px-4 py-4 capitalize">{(session.status ?? "unspecified").replaceAll("_", " ")}</td><td className="px-4 py-4">{session.zoom_link ? <a href={session.zoom_link} className="font-semibold text-lime-700 underline">Join</a> : "Not added"}</td></tr>; })}</tbody></table></div>}
           </div>
         </section>
 
         <section id="summaries" className="scroll-mt-6">
           <h2 className="text-xl font-bold">Attendance and session summaries</h2>
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            {summaries.length === 0 ? <EmptyState>No parent-facing session summaries are available.</EmptyState> : summaries.map((summary) => <article key={summary.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{studentNames.get(summary.student_id) ?? "Linked student"}</h3><span className="text-xs text-slate-500">{formatDateTime(summary.created_at, timeZone)}</span></div><p className="mt-2 text-sm font-medium capitalize text-slate-600">Attendance: {summary.attendance_status}</p><p className="mt-3 text-sm leading-6 text-slate-700">{summary.parent_summary ?? "No parent summary was added for this session."}</p></article>)}
+            {summaries.length === 0 ? <EmptyState>No parent-facing session summaries are available.</EmptyState> : summaries.map((summary) => <article key={summary.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{studentNames.get(summary.student_id) ?? "Linked student"}</h3><span className="text-xs text-slate-500">{formatDateTime(summary.created_at, studentTimeZones.get(summary.student_id) ?? "UTC")}</span></div><p className="mt-2 text-sm font-medium capitalize text-slate-600">Attendance: {summary.attendance_status}</p><p className="mt-3 text-sm leading-6 text-slate-700">{summary.parent_summary ?? "No parent summary was added for this session."}</p></article>)}
           </div>
         </section>
 

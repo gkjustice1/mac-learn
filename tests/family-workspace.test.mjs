@@ -20,6 +20,7 @@ test("Family workspace reads only RLS-protected and parent-facing data", async (
     assert.match(page, new RegExp(`\\.from\\("${table}"\\)`));
   }
   assert.match(page, /\.rpc\("mac_family_session_summaries"\)/);
+  assert.match(page, /\.in\("status", \["pending", "confirmed"\]\)/);
   assert.doesNotMatch(page, /\.from\("session_notes"\)/);
   assert.doesNotMatch(page, /performance_notes|internal_notes|createAdminClient|service_role/);
 });
@@ -38,8 +39,18 @@ test("Family migration preserves canonical tenant and role boundaries", async ()
   assert.match(migration, /relationship\.educational_access/);
   assert.match(migration, /enterprise_user\.account_status = 'active'/);
   assert.match(migration, /mac_has_role\('guardian'/);
+  assert.match(migration, /drop policy if exists "Admins manage sessions"/);
+  assert.match(migration, /mac_can_use_legacy_admin_access\(\)/);
   assert.match(migration, /revoke all on function public\.mac_family_session_summaries\(\)[\s\S]*from public, anon/);
   assert.match(migration, /grant execute on function public\.mac_family_session_summaries\(\)[\s\S]*to authenticated/);
+});
+
+test("Family workspace formats records in each student's tenant timezone", async () => {
+  const page = await read("src/app/family/page.tsx");
+  assert.match(page, /organizationTimeZones/);
+  assert.match(page, /siteTimeZones/);
+  assert.match(page, /timeZoneForStudent/);
+  assert.match(page, /studentTimeZones\.get\(summary\.student_id\)/);
 });
 
 test("successful note creation suppresses the empty-session warning", async () => {

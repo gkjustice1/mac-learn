@@ -112,6 +112,27 @@ for select
 to authenticated
 using (public.mac_family_can_view_organization(organization_id));
 
+-- The baseline MVP policy predates enterprise identities. Without this
+-- replacement, an enterprise guardian with a stale legacy admin profile would
+-- receive the union of admin and Family access because PostgreSQL permissive
+-- policies are ORed together.
+drop policy if exists "Admins manage sessions"
+on public.sessions;
+drop policy if exists "Legacy admins manage sessions during transition"
+on public.sessions;
+create policy "Legacy admins manage sessions during transition"
+on public.sessions
+for all
+to authenticated
+using (
+  public.current_user_role() = 'admin'
+  and public.mac_can_use_legacy_admin_access()
+)
+with check (
+  public.current_user_role() = 'admin'
+  and public.mac_can_use_legacy_admin_access()
+);
+
 drop policy if exists "Families view linked sessions"
 on public.sessions;
 create policy "Families view linked sessions"
