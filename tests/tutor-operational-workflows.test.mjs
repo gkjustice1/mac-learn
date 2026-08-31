@@ -94,3 +94,14 @@ test("elapsed attendance notes complete sessions with append-only audit history"
   assert.match(databaseTest, /session completion records the actor, transition, reason, and immutable history/);
   assert.match(databaseTest, /does not change an unrelated future session/);
 });
+
+test("legacy sessions with null creation timestamps receive a safe audit baseline", async () => {
+  const migration = await read(
+    "supabase/migrations/20260831135200_complete_elapsed_sessions_from_notes.sql",
+  );
+  assert.match(
+    migration,
+    /coalesce\(session\.created_at, now\(\)\)/,
+    "the baseline backfill must not insert a null occurred_at value",
+  );
+});
