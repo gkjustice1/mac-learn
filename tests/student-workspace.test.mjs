@@ -27,3 +27,16 @@ test("Student migration preserves canonical identity and excludes private notes"
   assert.match(migration, /revoke all on function public\.mac_student_feedback\(\) from public, anon/);
   assert.doesNotMatch(migration, /internal_notes|parent_summary/);
 });
+
+test("Student sessions use tenant timezones and to-one subject relations", async () => {
+  const [page, migration] = await Promise.all([
+    read("src/app/student/page.tsx"),
+    read("supabase/migrations/20260831153000_add_student_workspace_access.sql"),
+  ]);
+  assert.match(page, /organizationTimeZone/);
+  assert.match(page, /siteTimeZones/);
+  assert.match(page, /timeZoneForStudent\(session\.student_id\)/);
+  assert.match(page, /relatedRecord\(session\.subject\)/);
+  assert.match(migration, /"Students view their assigned sites"/);
+  assert.match(migration, /"Students view their organization configuration"/);
+});
