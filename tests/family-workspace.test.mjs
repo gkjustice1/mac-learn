@@ -59,6 +59,13 @@ test("Family workspace formats records in each student's tenant timezone", async
   assert.match(page, /studentTimeZones\.get\(summary\.student_id\)/);
 });
 
+test("Family workspace labels aggregated multi-scope data accurately", async () => {
+  const page = await read("src/app/family/page.tsx");
+  assert.match(page, /guardianAssignments\.length > 1/);
+  assert.match(page, /active family scopes/);
+  assert.match(page, /\{scopeLabel\}/);
+});
+
 test("successful note creation suppresses the empty-session warning", async () => {
   const form = await read("src/app/tutor/TutorOperationForms.tsx");
   assert.match(form, /sessions\.length === 0 && !note\.success/);

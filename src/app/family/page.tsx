@@ -121,6 +121,10 @@ export default async function FamilyPage() {
   const studentTimeZones = new Map(
     students.map((student) => [student.id, timeZoneForStudent(student)])
   );
+  const scopeLabel =
+    guardianAssignments.length > 1
+      ? `${guardianAssignments.length} active family scopes`
+      : `${organizationResult.data?.name ?? "Assigned organization"}${siteResult.data?.name ? ` · ${siteResult.data.name}` : ""}`;
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
@@ -141,7 +145,7 @@ export default async function FamilyPage() {
         <section className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-              {organizationResult.data?.name ?? "Assigned organization"}{siteResult.data?.name ? ` · ${siteResult.data.name}` : ""}
+              {scopeLabel}
             </p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight">Welcome, {context.user.user_metadata?.first_name ?? "Family"}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Review linked students, sessions, attendance summaries, progress, and upcoming learning goals.</p>
