@@ -91,7 +91,7 @@ export function TutorOperationForms({
       >
         <h3 className="font-bold">Create session note</h3>
         <Message state={note} />
-        {sessions.length === 0 && (
+        {sessions.length === 0 && !note.success && (
           <p className="text-sm text-amber-800">
             A scheduled session is required before adding a note.
           </p>
