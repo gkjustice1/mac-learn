@@ -52,7 +52,7 @@ select
   null,
   session.status,
   'Existing session captured when lifecycle audit was enabled.',
-  session.created_at
+  coalesce(session.created_at, now())
 from public.sessions session;
 
 create or replace function public.mac_audit_session_status_change()
