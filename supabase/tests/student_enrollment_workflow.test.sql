@@ -78,8 +78,8 @@ select ok(
   'guardian relationship visibility uses the student site timezone'
 );
 select ok(
-  (select qual ilike '%mac_relationship_calendar_date%' from pg_catalog.pg_policies where schemaname = 'public' and tablename = 'students' and policyname = 'Authenticated families view only related students'),
-  'family student visibility uses the student site timezone'
+  (select qual ilike '%mac_family_can_access_student%' from pg_catalog.pg_policies where schemaname = 'public' and tablename = 'students' and policyname = 'Authenticated families view only related students'),
+  'family student visibility uses the active role-aware access helper'
 );
 select ok(
   has_function_privilege('authenticated', 'public.mac_admin_search_guardians(uuid,uuid,text)', 'EXECUTE'),
