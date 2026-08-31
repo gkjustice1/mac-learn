@@ -85,6 +85,25 @@ from public, anon;
 grant execute on function public.mac_family_can_access_student(uuid)
 to authenticated;
 
+drop policy if exists "Authenticated families view only related students"
+on public.students;
+create policy "Authenticated families view only related students"
+on public.students
+for select
+to authenticated
+using (
+  public.mac_family_can_access_student(id)
+  or exists (
+    select 1
+    from public.profiles legacy_parent
+    where legacy_parent.id = students.parent_id
+      and legacy_parent.user_id = (select auth.uid())
+      and public.mac_can_use_legacy_family_link(
+        coalesce(students.organization_id, legacy_parent.organization_id)
+      )
+  )
+);
+
 drop policy if exists "Families view assigned organizations"
 on public.organizations;
 create policy "Families view assigned organizations"

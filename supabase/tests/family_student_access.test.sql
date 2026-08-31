@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(23);
+select plan(24);
 insert into auth.users (id,email) values
 ('14000000-0000-4000-8000-000000000001','family-access@example.test'),
 ('14000000-0000-4000-8000-000000000002','legacy-parent@example.test');
@@ -67,6 +67,21 @@ select ok(
   and (select relrowsecurity from pg_class where oid='public.session_notes'::regclass),
   'RLS remains enabled across the Family workspace source tables'
 );
+reset role;
+update public.role_assignments
+set status = 'inactive'
+where user_id = '14000000-0000-4000-8000-000000000001'
+  and role_key = 'guardian';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select is((select count(*) from public.students),0::bigint,'revoking the guardian role immediately removes linked-student access');
+reset role;
+update public.role_assignments
+set status = 'active'
+where user_id = '14000000-0000-4000-8000-000000000001'
+  and role_key = 'guardian';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select throws_ok($$insert into public.guardian_student_relationships (organization_id,guardian_id,student_id,relationship_type) values ('24000000-0000-4000-8000-000000000001','44000000-0000-4000-8000-000000000001','74000000-0000-4000-8000-000000000002','parent')$$,'42501','new row violates row-level security policy for table "guardian_student_relationships"','a guardian cannot create a relationship through the Data API');
 update public.students set grade_level='12' where id='74000000-0000-4000-8000-000000000001';
 select is((select grade_level from public.students where id='74000000-0000-4000-8000-000000000001'),'5','a guardian cannot change a related student through the Data API');
