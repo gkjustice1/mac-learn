@@ -43,4 +43,7 @@ test("Student sessions use tenant timezones and to-one subject relations", async
   assert.match(migration, /"Students view their organization configuration"/);
   assert.match(migration, /student\.enrollment_start_date <= public\.mac_relationship_calendar_date/);
   assert.match(migration, /student\.enrollment_end_date >= public\.mac_relationship_calendar_date/);
+  assert.match(migration, /configuration\.default_timezone/);
+  assert.match(migration, /enrollment\.enrolled_from <= public\.mac_relationship_calendar_date/);
+  assert.match(migration, /enrollment\.enrolled_until >= public\.mac_relationship_calendar_date/);
 });
