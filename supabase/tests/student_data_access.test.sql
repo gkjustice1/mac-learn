@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(20);
+select plan(22);
 
 insert into auth.users (id, email) values
   ('17000000-0000-4000-8000-000000000001', 'assigned-student@example.test'),
@@ -59,11 +59,57 @@ insert into public.progress_reports (student_id, tutor_id, subject_id, reporting
   ('77000000-0000-4000-8000-000000000001', '57000000-0000-4000-8000-000000000001', '97000000-0000-4000-8000-000000000001', 'Own period', 'Own strengths', 'Own goals'),
   ('77000000-0000-4000-8000-000000000002', '57000000-0000-4000-8000-000000000001', '97000000-0000-4000-8000-000000000001', 'Other period', 'Other strengths', 'Other goals');
 
+-- Always select a tenant timezone whose calendar date differs from the
+-- database date, so the boundary regression is deterministic at any UTC hour.
+update public.organization_configurations
+set default_timezone = case
+  when (now() at time zone 'Pacific/Kiritimati')::date <> current_date
+    then 'Pacific/Kiritimati'
+  else 'Pacific/Honolulu'
+end
+where organization_id = '27000000-0000-4000-8000-000000000001';
+update public.sites
+set timezone = (
+  select default_timezone
+  from public.organization_configurations
+  where organization_id = '27000000-0000-4000-8000-000000000001'
+)
+where id = '37000000-0000-4000-8000-000000000001';
+update public.classroom_student_enrollments
+set enrolled_from = public.mac_relationship_calendar_date(
+      '77000000-0000-4000-8000-000000000001',
+      '27000000-0000-4000-8000-000000000001'
+    ),
+    enrolled_until = public.mac_relationship_calendar_date(
+      '77000000-0000-4000-8000-000000000001',
+      '27000000-0000-4000-8000-000000000001'
+    )
+where student_id = '77000000-0000-4000-8000-000000000001';
+update public.students
+set primary_site_id = null
+where id = '77000000-0000-4000-8000-000000000001';
+select is(
+  public.mac_relationship_calendar_date(
+    '77000000-0000-4000-8000-000000000001',
+    '27000000-0000-4000-8000-000000000001'
+  ),
+  (
+    select (now() at time zone default_timezone)::date
+    from public.organization_configurations
+    where organization_id = '27000000-0000-4000-8000-000000000001'
+  ),
+  'a site-less student uses the organization timezone calendar date'
+);
+update public.students
+set primary_site_id = '37000000-0000-4000-8000-000000000001'
+where id = '77000000-0000-4000-8000-000000000001';
+
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"17000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 select is((select array_agg(student_id order by student_id) from public.mac_current_student_ids() as eligible(student_id)), array['77000000-0000-4000-8000-000000000001'::uuid, '77000000-0000-4000-8000-000000000003'::uuid], 'a student resolves every eligible enterprise student record');
 select is((select count(*) from public.students), 2::bigint, 'a student can view only their own student records');
 select is((select count(*) from public.classroom_student_enrollments), 2::bigint, 'a student can view only their own active enrollments');
+select is((select count(*) from public.classroom_student_enrollments where student_id = '77000000-0000-4000-8000-000000000001'), 1::bigint, 'classroom enrollment boundaries use the student tenant calendar date');
 select is((select count(*) from public.classrooms), 2::bigint, 'a student can view only their enrolled classrooms');
 select is((select count(*) from public.educator_instructional_records), 2::bigint, 'a student can view only their own instructional records');
 select is((select count(*) from public.classroom_student_enrollments where student_id = '77000000-0000-4000-8000-000000000002'), 0::bigint, 'another student enrollment is hidden');
