@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(27);
+select plan(33);
 
 insert into auth.users (id, email) values
   ('18000000-0000-4000-8000-000000000001', 'operations-admin@example.test'),
@@ -66,6 +66,19 @@ select ok(
   and not has_table_privilege('anon', 'public.session_notes', 'insert')
   and not has_table_privilege('anon', 'public.progress_reports', 'insert'),
   'anonymous users receive no Tutor workflow write grants'
+);
+select ok(
+  (select count(*) = 1 from information_schema.tables
+   where table_schema = 'public' and table_name = 'session_status_events'),
+  'session lifecycle audit history table exists'
+);
+select ok(
+  has_table_privilege('authenticated', 'public.session_status_events', 'select')
+  and not has_table_privilege('authenticated', 'public.session_status_events', 'insert')
+  and not has_table_privilege('authenticated', 'public.session_status_events', 'update')
+  and not has_table_privilege('authenticated', 'public.session_status_events', 'delete')
+  and not has_table_privilege('anon', 'public.session_status_events', 'select'),
+  'session lifecycle history is append-only and unavailable to anonymous users'
 );
 select ok(
   has_function_privilege('authenticated', 'public.mac_platform_admin_schedule_session(uuid,uuid,uuid,timestamptz,timestamptz,text)', 'execute'),
@@ -235,12 +248,54 @@ select throws_ok(
   'an invalid availability window is rejected'
 );
 select lives_ok(
-  $$insert into public.session_notes (session_id, tutor_id, attendance_status, skills_covered)
+  $insert into public.session_notes (session_id, tutor_id, attendance_status, skills_covered)
     select session.id, '58000000-0000-4000-8000-000000000001', 'present', 'Decoding'
     from public.sessions session
     where session.student_id = '78000000-0000-4000-8000-000000000001'
-      and session.end_time <= now()$$,
+      and session.end_time <= now()$,
   'a Tutor can add a note to their assigned session'
+);
+select is(
+  (
+    select session.status::text
+    from public.sessions session
+    where session.student_id = '78000000-0000-4000-8000-000000000001'
+      and session.end_time <= now()
+  ),
+  'completed',
+  'saving attendance atomically completes the elapsed session'
+);
+select is(
+  (
+    select note.skills_covered
+    from public.session_notes note
+    join public.sessions session on session.id = note.session_id
+    where session.student_id = '78000000-0000-4000-8000-000000000001'
+      and session.end_time <= now()
+  ),
+  'Decoding',
+  'session completion preserves the Tutor attendance note'
+);
+select is(
+  (
+    select count(*)
+    from public.session_status_events event
+    join public.sessions session on session.id = event.session_id
+    where session.student_id = '78000000-0000-4000-8000-000000000001'
+      and session.end_time <= now()
+      and event.event_type = 'status_changed'
+      and event.from_status = 'pending'
+      and event.to_status = 'completed'
+      and event.actor_user_id = '18000000-0000-4000-8000-000000000002'
+      and event.reason = 'Elapsed session completed when Tutor attendance note was saved.'
+  ),
+  1::bigint,
+  'session completion records the actor, transition, reason, and immutable history'
+);
+select is(
+  (select status::text from public.sessions where id = '98000000-0000-4000-8000-000000000001'),
+  'pending',
+  'saving an elapsed note does not change an unrelated future session'
 );
 select throws_ok(
   $$insert into public.session_notes (session_id, tutor_id, attendance_status, skills_covered)
