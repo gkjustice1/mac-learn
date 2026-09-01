@@ -32,11 +32,11 @@ export default async function StudentsPage() {
           <Link href="/platform/students/new" className="rounded-xl bg-lime-600 px-5 py-3 text-sm font-semibold text-white">Add student</Link>
         </header>
         <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr>{["Student", "Grade", "School", "Organization", "Site", "Status", "Start date"].map((heading) => <th key={heading} className="px-5 py-4 font-semibold">{heading}</th>)}</tr></thead>
+          <table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-slate-600"><tr>{["Student", "Grade", "School", "Organization", "Site", "Status", "Start date", "Login"].map((heading) => <th key={heading} className="px-5 py-4 font-semibold">{heading}</th>)}</tr></thead>
             <tbody className="divide-y divide-slate-200">{(data ?? []).map((student) => {
               const organization = Array.isArray(student.organization) ? student.organization[0] : student.organization;
               const site = Array.isArray(student.site) ? student.site[0] : student.site;
-              return <tr key={student.id}><td className="px-5 py-4 font-semibold">{student.first_name} {student.last_name}</td><td className="px-5 py-4">{student.grade_level}</td><td className="px-5 py-4">{student.school_name ?? "—"}</td><td className="px-5 py-4">{organization?.name ?? "—"}</td><td className="px-5 py-4">{site?.name ?? "—"}</td><td className="px-5 py-4 capitalize">{student.enterprise_status ?? "active"}</td><td className="px-5 py-4">{student.enrollment_start_date ?? "—"}</td></tr>;
+              return <tr key={student.id}><td className="px-5 py-4 font-semibold">{student.first_name} {student.last_name}</td><td className="px-5 py-4">{student.grade_level}</td><td className="px-5 py-4">{student.school_name ?? "—"}</td><td className="px-5 py-4">{organization?.name ?? "—"}</td><td className="px-5 py-4">{site?.name ?? "—"}</td><td className="px-5 py-4 capitalize">{student.enterprise_status ?? "active"}</td><td className="px-5 py-4">{student.enrollment_start_date ?? "—"}</td><td className="px-5 py-4"><Link href={`/platform/students/${student.id}/invite`} className="font-semibold underline">Invite login</Link></td></tr>;
             })}</tbody></table>
           {(data ?? []).length === 0 ? <p className="p-8 text-sm text-slate-600">No students have been enrolled yet.</p> : null}
         </section>
