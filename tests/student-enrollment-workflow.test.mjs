@@ -60,10 +60,11 @@ test("failed new-guardian enrollment cleans up only an invited identity", () => 
 });
 
 test("organization and site are validated before sending a guardian invitation", () => {
-  assert.match(actions, /from\("organizations"\)[\s\S]*eq\("status", "active"\)/);
-  assert.match(actions, /from\("sites"\)[\s\S]*eq\("organization_id", organizationId\)[\s\S]*eq\("status", "active"\)/);
-  assert.ok(actions.indexOf("const [organizationCheck, siteCheck]") < actions.indexOf("inviteUserByEmail"));
-  assert.ok(actions.indexOf("businessToday") < actions.indexOf("inviteUserByEmail"));
+  const enrollmentAction = actions.slice(actions.indexOf("export async function enrollStudent"));
+  assert.match(enrollmentAction, /from\("organizations"\)[\s\S]*eq\("status", "active"\)/);
+  assert.match(enrollmentAction, /from\("sites"\)[\s\S]*eq\("organization_id", organizationId\)[\s\S]*eq\("status", "active"\)/);
+  assert.ok(enrollmentAction.indexOf("const [organizationCheck, siteCheck]") < enrollmentAction.indexOf("inviteUserByEmail"));
+  assert.ok(enrollmentAction.indexOf("businessToday") < enrollmentAction.indexOf("inviteUserByEmail"));
 });
 
 test("controlled fields preserve data across unsuccessful submissions", () => {
