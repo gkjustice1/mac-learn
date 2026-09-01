@@ -34,3 +34,14 @@ test("Educator workspace exposes classroom, student, and instructional record se
   assert.match(page, /const scopeLabel =/);
   assert.match(page, /classroom\.status \?\? "unspecified"/);
 });
+
+test("Educator scope-name policies expose only actively assigned organization and site rows", async () => {
+  const migration = await read("supabase/migrations/20260901104500_add_educator_scope_name_access.sql");
+  assert.match(migration, /create policy "Educators view assigned organizations"/);
+  assert.match(migration, /classroom\.organization_id = organizations\.id/);
+  assert.match(migration, /public\.mac_is_active_classroom_educator\(classroom\.id\)/);
+  assert.match(migration, /create policy "Educators view assigned sites"/);
+  assert.match(migration, /classroom\.organization_id = sites\.organization_id/);
+  assert.match(migration, /classroom\.site_id = sites\.id/);
+  assert.doesNotMatch(migration, /for all|for insert|for update|for delete/i);
+});
