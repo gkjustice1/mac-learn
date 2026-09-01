@@ -15,6 +15,9 @@ export function resolveWorkspacePath(
       return assignment.organizationId && assignment.siteId
         ? `/organizations/${assignment.organizationId}/sites/${assignment.siteId}`
         : null;
+    case "teacher":
+    case "academic_lead":
+      return "/educator";
     case "tutor":
       return "/tutor";
     case "guardian":
