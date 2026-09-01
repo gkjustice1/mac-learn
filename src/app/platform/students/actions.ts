@@ -18,6 +18,7 @@ export type EnrollmentSearchResult = {
   options: EnrollmentSearchOption[];
   error: string | null;
 };
+export type StudentLoginInvitationState = { invited: boolean; error: string | null };
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -38,6 +39,56 @@ function optional(formData: FormData, name: string) {
 
 function message(error: unknown) {
   return error instanceof Error ? error.message : "Unable to enroll student.";
+}
+
+export async function inviteExistingStudentLogin(
+  _previous: StudentLoginInvitationState,
+  formData: FormData
+): Promise<StudentLoginInvitationState> {
+  let invitedUserId: string | null = null;
+  try {
+    await requirePlatformAdmin();
+    const studentId = required(formData, "student_id");
+    const email = required(formData, "email").toLowerCase();
+    if (!UUID_PATTERN.test(studentId)) throw new Error("Student selection is invalid.");
+    if (!EMAIL_PATTERN.test(email) || email.length > 254) throw new Error("Student email is invalid.");
+
+    const supabase = await createClient();
+    const { data: student, error: studentError } = await supabase
+      .from("students")
+      .select("id, first_name, last_name, person_id, organization_id, primary_site_id, enterprise_status")
+      .eq("id", studentId)
+      .maybeSingle();
+    if (studentError || !student) throw new Error("The selected student was not found.");
+    if (student.enterprise_status !== "active" || !student.person_id || !student.organization_id || !student.primary_site_id) {
+      throw new Error("The student must have an active canonical enrollment and primary site.");
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!appUrl) throw new Error("Invitations are unavailable until the application URL is configured.");
+    const adminClient = createAdminClient();
+    const { data: invite, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${appUrl}/auth/callback`,
+      data: { first_name: student.first_name, last_name: student.last_name },
+    });
+    if (inviteError || !invite.user) throw new Error(`Unable to invite Student: ${inviteError?.message ?? "unknown error"}`);
+    invitedUserId = invite.user.id;
+
+    const { data: linkedStudentId, error: linkError } = await supabase.rpc("mac_admin_link_invited_student_login", {
+      p_user_id: invitedUserId,
+      p_student_id: studentId,
+      p_email: email,
+    });
+    if (linkError || linkedStudentId !== studentId) throw new Error(`Unable to link Student login: ${linkError?.message ?? "unexpected result"}`);
+    revalidatePath("/platform/students");
+    return { invited: true, error: null };
+  } catch (error) {
+    if (invitedUserId) {
+      const { error: cleanupError } = await createAdminClient().auth.admin.deleteUser(invitedUserId);
+      if (cleanupError) return { invited: false, error: `${message(error)} Auth invitation cleanup failed for ${invitedUserId}; verify it before retrying.` };
+    }
+    return { invited: false, error: message(error) };
+  }
 }
 
 export async function searchEnrollmentOptions(
