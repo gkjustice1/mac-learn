@@ -64,6 +64,14 @@ export async function inviteExistingStudentLogin(
       throw new Error("The student must have an active canonical enrollment and primary site.");
     }
 
+    const { data: eligibleStudentId, error: eligibilityError } = await supabase.rpc(
+      "mac_admin_validate_student_login_invitation",
+      { p_student_id: studentId, p_email: email }
+    );
+    if (eligibilityError || eligibleStudentId !== studentId) {
+      throw new Error(`Unable to invite Student: ${eligibilityError?.message ?? "student is not eligible"}`);
+    }
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (!appUrl) throw new Error("Invitations are unavailable until the application URL is configured.");
     const adminClient = createAdminClient();
