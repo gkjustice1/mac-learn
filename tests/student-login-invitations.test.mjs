@@ -30,6 +30,23 @@ test("Student invitation scope and duplicate protections are enforced in the tra
   assert.match(migration, /revoke all on function public\.mac_admin_link_invited_student_login\(uuid, uuid, text\) from public, anon/);
 });
 
+test("every eligibility rejection happens before an invitation email is sent", async () => {
+  const [action, migration] = await Promise.all([
+    read("src/app/platform/students/actions.ts"),
+    read("supabase/migrations/20260901090000_invite_existing_student_login.sql"),
+  ]);
+  const validationCall = action.indexOf('"mac_admin_validate_student_login_invitation"');
+  const invitationCall = action.indexOf("inviteUserByEmail(email");
+  assert.ok(validationCall > -1 && validationCall < invitationCall);
+  assert.match(migration, /create or replace function public\.mac_admin_validate_student_login_invitation/);
+  assert.match(migration, /student enrollment is not current/);
+  assert.match(migration, /student organization or site is not active/);
+  assert.match(migration, /app_user\.person_id = v_student\.person_id/);
+  assert.match(migration, /lower\(profile\.email\) = v_email/);
+  assert.match(migration, /lower\(person\.primary_email\) <> v_email/);
+  assert.match(migration, /revoke all on function public\.mac_admin_validate_student_login_invitation\(uuid, text\) from public, anon/);
+});
+
 test("Failed database linking removes only the newly invited Auth identity", async () => {
   const action = await read("src/app/platform/students/actions.ts");
   assert.match(action, /if \(invitedUserId\)/);
