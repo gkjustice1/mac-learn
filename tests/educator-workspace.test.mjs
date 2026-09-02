@@ -14,8 +14,10 @@ test("Teacher and Academic Lead assignments route to the secure Educator workspa
 
 test("Educator workspace explicitly scopes all instructional reads from active classroom relationships", async () => {
   const page = await read("src/app/educator/page.tsx");
-  assert.match(page, /classroomAssignments[\s\S]*from\("classroom_educators"\)/);
-  assert.match(page, /const classroomIds = \[\.\.\.new Set\(classroomAssignments\.map/);
+  assert.match(page, /classroomAssignments[\s\S]*from\("classroom_educators"\)[\s\S]*\.eq\("user_id", context\.user\.id\)/);
+  assert.match(page, /const candidateClassroomIds = \[\.\.\.new Set\(classroomAssignments\.map/);
+  assert.match(page, /from\("classrooms"\)[\s\S]*\.in\("id", ids\)[\s\S]*\.eq\("status", "active"\)/);
+  assert.match(page, /const classroomIds = activeClassrooms\.map/);
   assert.match(page, /classroom_student_enrollments[\s\S]*\.in\("classroom_id", classroomChunk\)/);
   assert.match(page, /const accessibleStudentIds = \[\.\.\.new Set\(enrollments\.map/);
   assert.match(page, /from\("students"\)[\s\S]*\.in\("id", studentPageIds\)/);
