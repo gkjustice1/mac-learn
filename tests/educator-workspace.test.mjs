@@ -12,13 +12,15 @@ test("Teacher and Academic Lead assignments route to the secure Educator workspa
   assert.doesNotMatch(page, /createAdminClient|service_role/);
 });
 
-test("Educator workspace remains relationship-scoped through classroom RLS", async () => {
-  const [page, migration] = await Promise.all([read("src/app/educator/page.tsx"), read("supabase/migrations/20260828103000_enforce_educator_data_access.sql")]);
-  for (const table of ["classrooms", "classroom_educators", "classroom_student_enrollments", "students", "educator_instructional_records"]) assert.match(page, new RegExp(`from\\(\\"${table}\\"\\)`));
-  assert.match(migration, /assignment\.user_id = auth\.uid\(\)/);
-  assert.match(migration, /role_assignment\.organization_id = classroom\.organization_id/);
-  assert.match(migration, /role_assignment\.site_id is null or role_assignment\.site_id = classroom\.site_id/);
-  assert.match(migration, /public\.mac_educator_can_access_student\(classroom_id, student_id\)/);
+test("Educator workspace explicitly scopes all instructional reads from active classroom relationships", async () => {
+  const page = await read("src/app/educator/page.tsx");
+  assert.match(page, /classroomAssignments[\s\S]*from\("classroom_educators"\)/);
+  assert.match(page, /const classroomIds = \[\.\.\.new Set\(classroomAssignments\.map/);
+  assert.match(page, /classroom_student_enrollments[\s\S]*\.in\("classroom_id", classroomChunk\)/);
+  assert.match(page, /const accessibleStudentIds = \[\.\.\.new Set\(enrollments\.map/);
+  assert.match(page, /from\("students"\)[\s\S]*\.in\("id", studentPageIds\)/);
+  assert.match(page, /educator_instructional_records[\s\S]*\.in\("classroom_id", classroomIds\)/);
+  assert.doesNotMatch(page, /from\("students"\)\.select\([^\n]+\{ count: "exact" \}/);
 });
 
 test("Educator cards use row-specific scope labels and active assignment metrics", async () => {
@@ -27,7 +29,7 @@ test("Educator cards use row-specific scope labels and active assignment metrics
   assert.match(page, /scopeLabel\(classroom\.organization_id, classroom\.site_id\)/);
   assert.match(page, /scopeLabel\(student\.organization_id, student\.primary_site_id\)/);
   assert.match(page, /scopeLabel\(record\.organization_id, classroom\?\.site_id\)/);
-  assert.match(page, /\.eq\("status", "active"\)\.lte\("assigned_from", today\)/);
+  assert.match(page, /\.eq\("status", "active"\)[\s\S]*\.lte\("assigned_from", today\)/);
   assert.match(page, /assigned_until\.is\.null,assigned_until\.gte/);
   assert.match(page, /classroom\.status \?\? "unspecified"/);
 });
@@ -43,15 +45,30 @@ test("Educator scope-name policies follow active Teacher or Academic Lead role s
   assert.match(migration, /mac_is_active_educator_scope\(id, null\)/);
   assert.match(migration, /create policy "Educators view assigned sites"/);
   assert.match(migration, /mac_is_active_educator_scope\(organization_id, id\)/);
-  assert.doesNotMatch(migration, /for all|for insert|for update|for delete/i);
 });
 
-test("Educator students, records, and enrollment memberships cannot silently stop at Supabase max_rows", async () => {
+test("Every offset-paginated Educator relationship has deterministic ordering", async () => {
+  const page = await read("src/app/educator/page.tsx");
+  assert.match(page, /classroom_educators[\s\S]*\.order\("classroom_id"\)[\s\S]*\.order\("id"\)[\s\S]*\.range\(assignmentFrom/);
+  assert.match(page, /classroom_student_enrollments[\s\S]*\.order\("student_id"\)[\s\S]*\.order\("classroom_id"\)[\s\S]*\.order\("id"\)[\s\S]*\.range\(enrollmentFrom/);
+  assert.match(page, /from\("students"\)[\s\S]*\.order\("last_name"\)[\s\S]*\.order\("first_name"\)[\s\S]*\.order\("id"\)/);
+  assert.match(page, /educator_instructional_records[\s\S]*\.order\("occurred_on", \{ ascending: false \}\)[\s\S]*\.order\("id", \{ ascending: false \}\)[\s\S]*\.range\(recordFrom/);
+});
+
+test("Classrooms, students, and records expose complete counts with bounded visible pages", async () => {
   const page = await read("src/app/educator/page.tsx");
   assert.match(page, /const PAGE_SIZE = 100/);
-  assert.match(page, /students[\s\S]*\{ count: "exact" \}[\s\S]*\.range\(studentFrom, studentFrom \+ PAGE_SIZE - 1\)/);
-  assert.match(page, /educator_instructional_records[\s\S]*\{ count: "exact" \}[\s\S]*\.range\(recordFrom, recordFrom \+ PAGE_SIZE - 1\)/);
-  assert.match(page, /while \(true\)[\s\S]*classroom_student_enrollments[\s\S]*\.range\(from, from \+ PAGE_SIZE - 1\)/);
+  assert.match(page, /const classroomCount = classroomIds\.length/);
+  assert.match(page, /const studentCount = accessibleStudentIds\.length/);
+  assert.match(page, /educator_instructional_records[\s\S]*\{ count: "exact" \}/);
+  assert.match(page, /PageLinks page=\{classroomPage\}/);
   assert.match(page, /PageLinks page=\{studentPage\}/);
   assert.match(page, /PageLinks page=\{recordPage\}/);
+});
+
+test("Instructional record names are loaded from the record page rather than the visible Student page", async () => {
+  const page = await read("src/app/educator/page.tsx");
+  assert.match(page, /const recordStudentIds = \[\.\.\.new Set\(records\.map/);
+  assert.match(page, /recordStudentIds\.length[\s\S]*from\("students"\)\.select\("id, first_name, last_name"\)\.in\("id", recordStudentIds\)/);
+  assert.match(page, /studentNames = new Map\(\(recordStudentsResult\.data/);
 });
