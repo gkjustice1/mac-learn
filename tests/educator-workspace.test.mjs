@@ -40,12 +40,31 @@ test("Student page RPC returns memberships only for visible students", async () 
   assert.match(migration, /enrollment\.status = 'active'/);
 });
 
+test("Instructional record page requires a current classroom enrollment", async () => {
+  const migration = await read("supabase/migrations/20260902165000_add_educator_workspace_page_rpcs.sql");
+  const recordFunction = migration.slice(migration.indexOf("create or replace function public.mac_get_educator_instructional_record_page"));
+  assert.match(recordFunction, /exists \([\s\S]*from public\.classroom_student_enrollments enrollment/);
+  assert.match(recordFunction, /enrollment\.classroom_id = record\.classroom_id/);
+  assert.match(recordFunction, /enrollment\.student_id = record\.student_id/);
+  assert.match(recordFunction, /enrollment\.status = 'active'/);
+  assert.match(recordFunction, /mac_relationship_calendar_date/);
+});
+
 test("Page numbers are clamped before PostgreSQL integer RPC offsets are constructed", async () => {
   const page = await read("src/app/educator/page.tsx");
   assert.match(page, /const MAX_PAGE = Math\.floor\(2147483647 \/ PAGE_SIZE\) \+ 1/);
   assert.match(page, /Math\.min\(parsed, MAX_PAGE\)/);
   assert.match(page, /p_offset: \(studentPage - 1\) \* PAGE_SIZE/);
   assert.match(page, /p_offset: \(recordPage - 1\) \* PAGE_SIZE/);
+});
+
+test("Stale section pages redirect to the last available result page", async () => {
+  const page = await read("src/app/educator/page.tsx");
+  assert.match(page, /function availablePages\(count: number\)/);
+  assert.match(page, /classroomPage: Math\.min\(classroomPage, availablePages\(classroomCount\)\)/);
+  assert.match(page, /studentPage: Math\.min\(studentPage, availablePages\(studentCount\)\)/);
+  assert.match(page, /recordPage: Math\.min\(recordPage, availablePages\(recordCount\)\)/);
+  assert.match(page, /redirect\(normalizedPageHref\(params, normalizedPages\)\)/);
 });
 
 test("Educator scope-name policies follow active Teacher or Academic Lead role scope", async () => {
