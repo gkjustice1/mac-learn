@@ -67,6 +67,10 @@ function pageNumber(value: string | undefined) {
   return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, MAX_PAGE) : 1;
 }
 
+function availablePages(count: number) {
+  return Math.max(1, Math.ceil(count / PAGE_SIZE));
+}
+
 function pageHref(
   params: SearchParams,
   parameter: keyof SearchParams,
@@ -82,6 +86,18 @@ function pageHref(
   return `${serialized ? `?${serialized}` : ""}#${anchor}`;
 }
 
+function normalizedPageHref(
+  params: SearchParams,
+  pages: { classroomPage: number; studentPage: number; recordPage: number }
+) {
+  const query = new URLSearchParams();
+  for (const key of ["classroomPage", "studentPage", "recordPage"] as const) {
+    if (pages[key] > 1) query.set(key, String(pages[key]));
+  }
+  const serialized = query.toString();
+  return `/educator${serialized ? `?${serialized}` : ""}`;
+}
+
 function PageLinks({
   page,
   count,
@@ -95,7 +111,7 @@ function PageLinks({
   anchor: string;
   params: SearchParams;
 }) {
-  const pages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  const pages = availablePages(count);
   if (pages <= 1) return null;
 
   return (
@@ -184,6 +200,19 @@ export default async function EducatorPage({
   }) as { total_count: number; rows: RecordRow[] };
   const records = recordPayload.rows ?? [];
   const recordCount = Number(recordPayload.total_count ?? 0);
+
+  const normalizedPages = {
+    classroomPage: Math.min(classroomPage, availablePages(classroomCount)),
+    studentPage: Math.min(studentPage, availablePages(studentCount)),
+    recordPage: Math.min(recordPage, availablePages(recordCount)),
+  };
+  if (
+    normalizedPages.classroomPage !== classroomPage ||
+    normalizedPages.studentPage !== studentPage ||
+    normalizedPages.recordPage !== recordPage
+  ) {
+    redirect(normalizedPageHref(params, normalizedPages));
+  }
 
   const referencedOrganizationIds = [
     ...new Set([
