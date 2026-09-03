@@ -50,6 +50,18 @@ test("Instructional record page requires a current classroom enrollment", async 
   assert.match(recordFunction, /mac_relationship_calendar_date/);
 });
 
+test("Educator student-access RLS uses the same tenant calendar as workspace paging", async () => {
+  const migration = await read("supabase/migrations/20260903125500_align_educator_rls_tenant_calendar.sql");
+  assert.match(migration, /create or replace function public\.mac_educator_can_access_student/);
+  assert.match(migration, /mac_is_active_classroom_educator\(requested_classroom_id\)/);
+  assert.match(migration, /enrollment\.classroom_id = requested_classroom_id/);
+  assert.match(migration, /enrollment\.student_id = requested_student_id/);
+  assert.match(migration, /enrollment\.status = 'active'/);
+  assert.match(migration, /enrollment\.enrolled_from <= public\.mac_relationship_calendar_date/);
+  assert.match(migration, /enrollment\.enrolled_until >= public\.mac_relationship_calendar_date/);
+  assert.doesNotMatch(migration, /enrollment\.enrolled_from <= current_date/);
+});
+
 test("Page numbers are clamped before PostgreSQL integer RPC offsets are constructed", async () => {
   const page = await read("src/app/educator/page.tsx");
   assert.match(page, /const MAX_PAGE = Math\.floor\(2147483647 \/ PAGE_SIZE\) \+ 1/);
