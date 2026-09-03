@@ -185,6 +185,25 @@ as $$
     join public.students student on student.id = record.student_id
     where classroom.status = 'active'
       and public.mac_is_active_classroom_educator(classroom.id)
+      and exists (
+        select 1
+        from public.classroom_student_enrollments enrollment
+        where enrollment.organization_id = record.organization_id
+          and enrollment.classroom_id = record.classroom_id
+          and enrollment.student_id = record.student_id
+          and enrollment.status = 'active'
+          and enrollment.enrolled_from <= public.mac_relationship_calendar_date(
+            enrollment.student_id,
+            enrollment.organization_id
+          )
+          and (
+            enrollment.enrolled_until is null
+            or enrollment.enrolled_until >= public.mac_relationship_calendar_date(
+              enrollment.student_id,
+              enrollment.organization_id
+            )
+          )
+      )
   ),
   totals as (
     select count(*)::bigint as total_count from eligible_records
@@ -230,4 +249,4 @@ comment on function public.mac_get_educator_classroom_page(integer, integer) is
 comment on function public.mac_get_educator_student_page(integer, integer) is
   'Returns one bounded page of distinct students reachable only through active Educator classroom relationships, with visible classroom memberships and an exact total count using each student tenant calendar date.';
 comment on function public.mac_get_educator_instructional_record_page(integer, integer) is
-  'Returns one bounded page of instructional records reachable only through active Educator classroom relationships, with display names and an exact total count.';
+  'Returns one bounded page of instructional records reachable only through active Educator classroom relationships and current classroom enrollment, with display names and an exact total count.';
