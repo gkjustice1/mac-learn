@@ -58,7 +58,7 @@ test("Educator scope-name policies follow active Teacher or Academic Lead role s
 
 test("Independent paginator links preserve the other page parameters", async () => {
   const page = await read("src/app/educator/page.tsx");
-  assert.match(page, /function pageHref\(params: SearchParams/);
+  assert.match(page, /function pageHref\(\s*params: SearchParams/);
   assert.match(page, /\["classroomPage", "studentPage", "recordPage"\]/);
   assert.match(page, /key === parameter \? String\(value\) : params\[key\]/);
   assert.match(page, /params=\{params\}/);
@@ -66,8 +66,8 @@ test("Independent paginator links preserve the other page parameters", async () 
 
 test("Visible cards retain row-specific scope labels and nullable classroom status fallback", async () => {
   const page = await read("src/app/educator/page.tsx");
-  assert.match(page, /scopeLabel\(c\.organization_id, c\.site_id\)/);
-  assert.match(page, /scopeLabel\(s\.organization_id, s\.primary_site_id\)/);
-  assert.match(page, /scopeLabel\(r\.organization_id, r\.site_id\)/);
-  assert.match(page, /c\.status \?\? "unspecified"/);
+  assert.match(page, /scopeLabel\(classroom\.organization_id, classroom\.site_id\)/);
+  assert.match(page, /scopeLabel\(student\.organization_id, student\.primary_site_id\)/);
+  assert.match(page, /scopeLabel\(record\.organization_id, record\.site_id\)/);
+  assert.match(page, /classroom\.status \?\? "unspecified"/);
 });
