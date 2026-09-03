@@ -40,6 +40,20 @@ test("Student page RPC returns memberships only for visible students", async () 
   assert.match(migration, /enrollment\.status = 'active'/);
 });
 
+test("Educator student and record pages require the canonical Student lifecycle", async () => {
+  const migration = await read("supabase/migrations/20260902165000_add_educator_workspace_page_rpcs.sql");
+  const studentFunction = migration.slice(
+    migration.indexOf("create or replace function public.mac_get_educator_student_page"),
+    migration.indexOf("create or replace function public.mac_get_educator_instructional_record_page"),
+  );
+  const recordFunction = migration.slice(migration.indexOf("create or replace function public.mac_get_educator_instructional_record_page"));
+  for (const functionBody of [studentFunction, recordFunction]) {
+    assert.match(functionBody, /student\.enterprise_status = 'active'/);
+    assert.match(functionBody, /student\.enrollment_start_date <= public\.mac_relationship_calendar_date/);
+    assert.match(functionBody, /student\.enrollment_end_date >= public\.mac_relationship_calendar_date/);
+  }
+});
+
 test("Instructional record page requires a current classroom enrollment", async () => {
   const migration = await read("supabase/migrations/20260902165000_add_educator_workspace_page_rpcs.sql");
   const recordFunction = migration.slice(migration.indexOf("create or replace function public.mac_get_educator_instructional_record_page"));
