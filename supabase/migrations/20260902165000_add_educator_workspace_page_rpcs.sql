@@ -66,10 +66,25 @@ security invoker
 set search_path = pg_catalog, public
 as $$
   with eligible_students as (
-    select distinct enrollment.student_id
+    select distinct student.id as student_id
     from public.classroom_student_enrollments enrollment
     join public.classrooms classroom on classroom.id = enrollment.classroom_id
+    join public.students student
+      on student.id = enrollment.student_id
+     and student.organization_id = enrollment.organization_id
     where classroom.status = 'active'
+      and student.enterprise_status = 'active'
+      and student.enrollment_start_date <= public.mac_relationship_calendar_date(
+        student.id,
+        student.organization_id
+      )
+      and (
+        student.enrollment_end_date is null
+        or student.enrollment_end_date >= public.mac_relationship_calendar_date(
+          student.id,
+          student.organization_id
+        )
+      )
       and enrollment.status = 'active'
       and enrollment.enrolled_from <= public.mac_relationship_calendar_date(
         enrollment.student_id,
@@ -182,8 +197,22 @@ as $$
            student.last_name as student_last_name
     from public.educator_instructional_records record
     join public.classrooms classroom on classroom.id = record.classroom_id
-    join public.students student on student.id = record.student_id
+    join public.students student
+      on student.id = record.student_id
+     and student.organization_id = record.organization_id
     where classroom.status = 'active'
+      and student.enterprise_status = 'active'
+      and student.enrollment_start_date <= public.mac_relationship_calendar_date(
+        student.id,
+        student.organization_id
+      )
+      and (
+        student.enrollment_end_date is null
+        or student.enrollment_end_date >= public.mac_relationship_calendar_date(
+          student.id,
+          student.organization_id
+        )
+      )
       and public.mac_is_active_classroom_educator(classroom.id)
       and exists (
         select 1
@@ -247,6 +276,6 @@ grant execute on function public.mac_get_educator_instructional_record_page(inte
 comment on function public.mac_get_educator_classroom_page(integer, integer) is
   'Returns one bounded page of active classrooms assigned to the authenticated Educator plus an exact total count.';
 comment on function public.mac_get_educator_student_page(integer, integer) is
-  'Returns one bounded page of distinct students reachable only through active Educator classroom relationships, with visible classroom memberships and an exact total count using each student tenant calendar date.';
+  'Returns one bounded page of canonically active students reachable only through active Educator classroom relationships, with visible classroom memberships and an exact total count using each student tenant calendar date.';
 comment on function public.mac_get_educator_instructional_record_page(integer, integer) is
-  'Returns one bounded page of instructional records reachable only through active Educator classroom relationships and current classroom enrollment, with display names and an exact total count.';
+  'Returns one bounded page of instructional records for canonically active students reachable only through active Educator classroom relationships and current classroom enrollment, with display names and an exact total count.';
