@@ -22,8 +22,11 @@ as $$
     join public.classrooms classroom on classroom.id = assignment.classroom_id
     where assignment.user_id = auth.uid()
       and assignment.status = 'active'
-      and assignment.assigned_from <= current_date
-      and (assignment.assigned_until is null or assignment.assigned_until >= current_date)
+      and assignment.assigned_from <= public.mac_classroom_calendar_date(classroom.id)
+      and (
+        assignment.assigned_until is null
+        or assignment.assigned_until >= public.mac_classroom_calendar_date(classroom.id)
+      )
       and classroom.status = 'active'
       and public.mac_is_active_classroom_educator(classroom.id)
   ),
@@ -280,7 +283,7 @@ grant execute on function public.mac_get_educator_student_page(integer, integer)
 grant execute on function public.mac_get_educator_instructional_record_page(integer, integer) to authenticated;
 
 comment on function public.mac_get_educator_classroom_page(integer, integer) is
-  'Returns one bounded page of active classrooms assigned to the authenticated Educator plus an exact total count.';
+  'Returns one bounded page of active classrooms assigned to the authenticated Educator plus an exact total count, with assignment dates evaluated in each classroom tenant calendar.';
 comment on function public.mac_get_educator_student_page(integer, integer) is
   'Returns one bounded page of canonically active students reachable only through active Educator classroom relationships, preserving legacy NULL enrollment-start dates and using each student tenant calendar date.';
 comment on function public.mac_get_educator_instructional_record_page(integer, integer) is
