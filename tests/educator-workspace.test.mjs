@@ -49,8 +49,8 @@ test("Educator student and record pages require the canonical Student lifecycle"
   const recordFunction = migration.slice(migration.indexOf("create or replace function public.mac_get_educator_instructional_record_page"));
   for (const functionBody of [studentFunction, recordFunction]) {
     assert.match(functionBody, /student\.enterprise_status = 'active'/);
-    assert.match(functionBody, /student\.enrollment_start_date <= public\.mac_relationship_calendar_date/);
-    assert.match(functionBody, /student\.enrollment_end_date >= public\.mac_relationship_calendar_date/);
+    assert.match(functionBody, /student\.enrollment_start_date is null[\s\S]*or student\.enrollment_start_date <= public\.mac_relationship_calendar_date/);
+    assert.match(functionBody, /student\.enrollment_end_date is null[\s\S]*or student\.enrollment_end_date >= public\.mac_relationship_calendar_date/);
   }
 });
 
