@@ -11,31 +11,41 @@ test("Teacher and Academic Lead assignments route to the secure Educator workspa
   assert.doesNotMatch(page, /createAdminClient|service_role/);
 });
 
-test("Educator classroom reads are explicitly anchored to the signed-in user and active classrooms", async () => {
-  const page = await read("src/app/educator/page.tsx");
-  assert.match(page, /from\("classroom_educators"\)[\s\S]*\.eq\("user_id", context\.user\.id\)/);
-  assert.match(page, /\.eq\("status", "active"\)[\s\S]*\.lte\("assigned_from", today\)/);
-  assert.match(page, /from\("classrooms"\)[\s\S]*\.eq\("status", "active"\)/);
-});
-
-test("Large student and instructional-record scopes are paged at the database boundary", async () => {
+test("Classrooms, students, and instructional records are paged at the database boundary", async () => {
   const [page, migration] = await Promise.all([read("src/app/educator/page.tsx"), read("supabase/migrations/20260902165000_add_educator_workspace_page_rpcs.sql")]);
+  assert.match(page, /rpc\("mac_get_educator_classroom_page"/);
   assert.match(page, /rpc\("mac_get_educator_student_page"/);
   assert.match(page, /rpc\("mac_get_educator_instructional_record_page"/);
+  assert.doesNotMatch(page, /from\("classroom_educators"\)/);
   assert.doesNotMatch(page, /classroom_student_enrollments/);
   assert.doesNotMatch(page, /educator_instructional_records[\s\S]*\.in\("classroom_id"/);
-  assert.match(migration, /create or replace function public\.mac_get_educator_student_page/);
-  assert.match(migration, /create or replace function public\.mac_get_educator_instructional_record_page/);
+  assert.match(migration, /create or replace function public\.mac_get_educator_classroom_page/);
+  assert.match(migration, /assignment\.user_id = auth\.uid\(\)/);
+  assert.match(migration, /classroom\.status = 'active'/);
   assert.match(migration, /mac_is_active_classroom_educator\(classroom\.id\)/);
-  assert.match(migration, /count\(\*\) over \(\) as total_count/);
+});
+
+test("Educator page RPCs preserve exact totals even when the requested page has no rows", async () => {
+  const migration = await read("supabase/migrations/20260902165000_add_educator_workspace_page_rpcs.sql");
+  assert.match(migration, /totals as \([\s\S]*count\(\*\)::bigint as total_count/);
+  assert.match(migration, /'total_count', totals\.total_count/);
+  assert.doesNotMatch(migration, /coalesce\(max\(total_count\), 0\)/);
   assert.match(migration, /limit least\(greatest\(p_limit, 1\), 100\)/);
 });
 
 test("Student page RPC returns memberships only for visible students", async () => {
   const migration = await read("supabase/migrations/20260902165000_add_educator_workspace_page_rpcs.sql");
-  assert.match(migration, /where enrollment\.student_id = counted\.id/);
+  assert.match(migration, /where enrollment\.student_id = paged\.id/);
   assert.match(migration, /'classroom_name', classroom\.name/);
   assert.match(migration, /enrollment\.status = 'active'/);
+});
+
+test("Page numbers are clamped before PostgreSQL integer RPC offsets are constructed", async () => {
+  const page = await read("src/app/educator/page.tsx");
+  assert.match(page, /const MAX_PAGE = Math\.floor\(2147483647 \/ PAGE_SIZE\) \+ 1/);
+  assert.match(page, /Math\.min\(parsed, MAX_PAGE\)/);
+  assert.match(page, /p_offset: \(studentPage - 1\) \* PAGE_SIZE/);
+  assert.match(page, /p_offset: \(recordPage - 1\) \* PAGE_SIZE/);
 });
 
 test("Educator scope-name policies follow active Teacher or Academic Lead role scope", async () => {
