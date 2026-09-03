@@ -74,9 +74,12 @@ as $$
      and student.organization_id = enrollment.organization_id
     where classroom.status = 'active'
       and student.enterprise_status = 'active'
-      and student.enrollment_start_date <= public.mac_relationship_calendar_date(
-        student.id,
-        student.organization_id
+      and (
+        student.enrollment_start_date is null
+        or student.enrollment_start_date <= public.mac_relationship_calendar_date(
+          student.id,
+          student.organization_id
+        )
       )
       and (
         student.enrollment_end_date is null
@@ -202,9 +205,12 @@ as $$
      and student.organization_id = record.organization_id
     where classroom.status = 'active'
       and student.enterprise_status = 'active'
-      and student.enrollment_start_date <= public.mac_relationship_calendar_date(
-        student.id,
-        student.organization_id
+      and (
+        student.enrollment_start_date is null
+        or student.enrollment_start_date <= public.mac_relationship_calendar_date(
+          student.id,
+          student.organization_id
+        )
       )
       and (
         student.enrollment_end_date is null
@@ -276,6 +282,6 @@ grant execute on function public.mac_get_educator_instructional_record_page(inte
 comment on function public.mac_get_educator_classroom_page(integer, integer) is
   'Returns one bounded page of active classrooms assigned to the authenticated Educator plus an exact total count.';
 comment on function public.mac_get_educator_student_page(integer, integer) is
-  'Returns one bounded page of canonically active students reachable only through active Educator classroom relationships, with visible classroom memberships and an exact total count using each student tenant calendar date.';
+  'Returns one bounded page of canonically active students reachable only through active Educator classroom relationships, preserving legacy NULL enrollment-start dates and using each student tenant calendar date.';
 comment on function public.mac_get_educator_instructional_record_page(integer, integer) is
-  'Returns one bounded page of instructional records for canonically active students reachable only through active Educator classroom relationships and current classroom enrollment, with display names and an exact total count.';
+  'Returns one bounded page of instructional records for canonically active students, preserving legacy NULL enrollment-start dates and requiring current classroom enrollment.';
