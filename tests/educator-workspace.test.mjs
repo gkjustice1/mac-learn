@@ -25,6 +25,26 @@ test("Classrooms, students, and instructional records are paged at the database 
   assert.match(migration, /mac_is_active_classroom_educator\(classroom\.id\)/);
 });
 
+test("Educator classroom assignments use the classroom tenant calendar", async () => {
+  const [pagingMigration, assignmentMigration] = await Promise.all([
+    read("supabase/migrations/20260902165000_add_educator_workspace_page_rpcs.sql"),
+    read("supabase/migrations/20260903163500_align_educator_assignment_tenant_calendar.sql"),
+  ]);
+  assert.match(assignmentMigration, /create or replace function public\.mac_classroom_calendar_date/);
+  assert.match(assignmentMigration, /select site\.timezone/);
+  assert.match(assignmentMigration, /select configuration\.default_timezone/);
+  assert.match(assignmentMigration, /assignment\.assigned_from <= public\.mac_classroom_calendar_date\(classroom\.id\)/);
+  assert.match(assignmentMigration, /assignment\.assigned_until >= public\.mac_classroom_calendar_date\(classroom\.id\)/);
+  assert.doesNotMatch(assignmentMigration, /assignment\.assigned_from <= current_date/);
+  const classroomPage = pagingMigration.slice(
+    pagingMigration.indexOf("create or replace function public.mac_get_educator_classroom_page"),
+    pagingMigration.indexOf("create or replace function public.mac_get_educator_student_page"),
+  );
+  assert.match(classroomPage, /assignment\.assigned_from <= public\.mac_classroom_calendar_date\(classroom\.id\)/);
+  assert.match(classroomPage, /assignment\.assigned_until >= public\.mac_classroom_calendar_date\(classroom\.id\)/);
+  assert.doesNotMatch(classroomPage, /assignment\.assigned_from <= current_date/);
+});
+
 test("Educator page RPCs preserve exact totals even when the requested page has no rows", async () => {
   const migration = await read("supabase/migrations/20260902165000_add_educator_workspace_page_rpcs.sql");
   assert.match(migration, /totals as \([\s\S]*count\(\*\)::bigint as total_count/);
