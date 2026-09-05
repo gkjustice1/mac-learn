@@ -267,6 +267,20 @@ export default async function EducatorPage({
     ]
       .filter(Boolean)
       .join(" · ");
+  const studentScopeLabel = (student: StudentRow) => {
+    const siteIds = [
+      ...new Set(
+        student.classrooms
+          .map((classroom) => classroom.site_id)
+          .filter((siteId): siteId is string => Boolean(siteId))
+      ),
+    ];
+
+    return [
+      organizationNames.get(student.organization_id) ?? "Assigned organization",
+      ...siteIds.map((siteId) => siteNames.get(siteId) ?? "Assigned site"),
+    ].join(" · ");
+  };
   const assignmentScopeLabel = scopeLabel(assignment.organizationId, assignment.siteId);
 
   return (
@@ -329,11 +343,10 @@ export default async function EducatorPage({
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {students.length ? (
               students.map((student) => {
-                const accessibleSiteId = student.classrooms.find((classroom) => classroom.site_id)?.site_id ?? null;
                 return (
                   <article key={student.id} className="rounded-2xl border border-slate-200 bg-white p-5">
                     <h3 className="font-semibold">{student.first_name} {student.last_name}</h3>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{scopeLabel(student.organization_id, accessibleSiteId)}</p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{studentScopeLabel(student)}</p>
                     <p className="mt-2 text-sm text-slate-600">Grade {student.grade_level ?? "unspecified"}{student.school_name ? ` · ${student.school_name}` : ""}</p>
                     <p className="mt-2 text-xs text-slate-500">{student.classrooms.map((classroom) => classroom.classroom_name).join(", ") || "Assigned classroom"}</p>
                   </article>

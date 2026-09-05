@@ -132,8 +132,11 @@ test("Independent paginator links preserve the other page parameters", async () 
 test("Visible cards retain row-specific scope labels and nullable classroom status fallback", async () => {
   const page = await read("src/app/educator/page.tsx");
   assert.match(page, /scopeLabel\(classroom\.organization_id, classroom\.site_id\)/);
-  assert.match(page, /const accessibleSiteId = student\.classrooms\.find\(\(classroom\) => classroom\.site_id\)\?\.site_id \?\? null/);
-  assert.match(page, /scopeLabel\(student\.organization_id, accessibleSiteId\)/);
+  assert.match(page, /const studentScopeLabel = \(student: StudentRow\)/);
+  assert.match(page, /new Set\([\s\S]*student\.classrooms[\s\S]*classroom\.site_id/);
+  assert.match(page, /siteIds\.map\(\(siteId\) => siteNames\.get\(siteId\) \?\? "Assigned site"\)/);
+  assert.match(page, /studentScopeLabel\(student\)/);
+  assert.doesNotMatch(page, /classrooms\.find\(\(classroom\) => classroom\.site_id\)/);
   assert.doesNotMatch(page, /scopeLabel\(student\.organization_id, student\.primary_site_id\)/);
   assert.match(page, /scopeLabel\(record\.organization_id, record\.site_id\)/);
   assert.match(page, /classroom\.status \?\? "unspecified"/);
@@ -144,4 +147,17 @@ test("Student scope-name lookups use accessible classroom sites instead of prima
   const referencedSites = page.slice(page.indexOf("const referencedSiteIds"), page.indexOf("const organizationNames"));
   assert.match(referencedSites, /students\.flatMap\(\(row\) => row\.classrooms\.map\(\(classroom\) => classroom\.site_id\)\)/);
   assert.doesNotMatch(referencedSites, /students\.map\(\(row\) => row\.primary_site_id\)/);
+});
+
+
+test("Student cards render every distinct accessible classroom site", async () => {
+  const page = await read("src/app/educator/page.tsx");
+  const studentLabel = page.slice(
+    page.indexOf("const studentScopeLabel"),
+    page.indexOf("const assignmentScopeLabel"),
+  );
+  assert.match(studentLabel, /new Set/);
+  assert.match(studentLabel, /student\.classrooms/);
+  assert.match(studentLabel, /siteIds\.map/);
+  assert.doesNotMatch(studentLabel, /\.find\(/);
 });
