@@ -132,7 +132,16 @@ test("Independent paginator links preserve the other page parameters", async () 
 test("Visible cards retain row-specific scope labels and nullable classroom status fallback", async () => {
   const page = await read("src/app/educator/page.tsx");
   assert.match(page, /scopeLabel\(classroom\.organization_id, classroom\.site_id\)/);
-  assert.match(page, /scopeLabel\(student\.organization_id, student\.primary_site_id\)/);
+  assert.match(page, /const accessibleSiteId = student\.classrooms\.find\(\(classroom\) => classroom\.site_id\)\?\.site_id \?\? null/);
+  assert.match(page, /scopeLabel\(student\.organization_id, accessibleSiteId\)/);
+  assert.doesNotMatch(page, /scopeLabel\(student\.organization_id, student\.primary_site_id\)/);
   assert.match(page, /scopeLabel\(record\.organization_id, record\.site_id\)/);
   assert.match(page, /classroom\.status \?\? "unspecified"/);
+});
+
+test("Student scope-name lookups use accessible classroom sites instead of primary site", async () => {
+  const page = await read("src/app/educator/page.tsx");
+  const referencedSites = page.slice(page.indexOf("const referencedSiteIds"), page.indexOf("const organizationNames"));
+  assert.match(referencedSites, /students\.flatMap\(\(row\) => row\.classrooms\.map\(\(classroom\) => classroom\.site_id\)\)/);
+  assert.doesNotMatch(referencedSites, /students\.map\(\(row\) => row\.primary_site_id\)/);
 });
