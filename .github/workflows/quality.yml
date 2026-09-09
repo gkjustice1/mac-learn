@@ -58,6 +58,19 @@ jobs:
         with:
           version: 2.100.0
 
+      - name: Generate ACL reconciliation migration
+        if: github.ref == 'refs/heads/chore/migration-reconciliation'
+        run: supabase migration new reconcile_production_acl
+
+      - name: Upload generated ACL migration
+        if: github.ref == 'refs/heads/chore/migration-reconciliation'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: generated-acl-migration
+          path: supabase/migrations/*_reconcile_production_acl.sql
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Start local Supabase
         run: supabase start
 
