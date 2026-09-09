@@ -1,6 +1,6 @@
 # MAC Learn Migration Reconciliation Manifest
 
-Status: Phase 3 working manifest. Production migration metadata remains unchanged.
+Status: Production-equivalent clean replay revalidated after the Vocabulary Studio merge. PR #48 remains unapplied to production.
 
 Canonical-source policy: GitHub source-controlled migration SQL is the replay authority, subject to schema-equivalence verification against production. Production-only migrations must be restored with their original production versions and semantics before any metadata repair is proposed.
 
@@ -63,11 +63,27 @@ Canonical-source policy: GitHub source-controlled migration SQL is the replay au
 2. Insert the four restored audio migrations at their original versions (`20260829150630` through `20260829150719`).
 3. Do not rewrite later GitHub timestamps to match production. The repository order is dependency-correct and is already exercised by fresh-database CI.
 4. Do not modify production `supabase_migrations.schema_migrations` until a clean replay and schema-equivalence audit succeed.
-5. Keep Vocabulary Studio PR #45 outside this reconciliation branch.
+5. Keep the merged Vocabulary Studio migration (`20260909143000_add_vocabulary_catalog.sql`) in the canonical chain before the final ACL-equivalence migration.
+
+## Current production-equivalence evidence
+
+The clean replay generated from current `main` plus PR #48 on 2026-09-09 matched current production for every required normalized comparison:
+
+- Public table ACLs: 615 rows, including exactly 77 API-role `MAINTAIN` grants.
+- Public column ACLs: 5 rows.
+- Public function ACLs: 107 rows, excluding the expected production-only `rls_auto_enable()` helper.
+- Public constraints: 173.
+- Shared public function definitions and security attributes: 57.
+- Public RLS policies: 83; table RLS states: 29.
+- Public indexes: 101; columns: 315; enum labels: 29; triggers: 25.
+- MAC READS audio Storage bucket configuration: exact match.
+- Migration inventory: all 44 production versions and names exactly match the branch prefix; `20260909171010_finalize_production_acl_equivalence.sql` is the sole pending migration.
+- Clean-replay schema SHA-256: `a72d5363ae72fba4f2c2388046d5b2aaf69d2f1f368172e4c07fa6e5c4cf82e0`.
+
+**PRODUCTION-EQUIVALENT REPLAY: PASS**
 
 ## Remaining certification gates
 
-- Clean replay of the repaired canonical chain from an empty Supabase database.
-- Production-equivalence audit for public/storage schema objects, functions, policies, grants, indexes, constraints, and relevant configuration.
-- Independent review of the migration-reconciliation PR.
-- Only then design and separately authorize any production migration-metadata repair.
+- Normal Quality and Vercel checks on the instrumentation-free PR head.
+- Fresh independent Codex review on that same head.
+- Explicit merge approval after every check is clean.

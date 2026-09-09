@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, chore/migration-reconciliation]
+    branches: [main]
 
 permissions:
   contents: read
@@ -63,22 +63,6 @@ jobs:
 
       - name: Run database tests
         run: supabase test db
-
-      - name: Dump clean replay schema
-        run: supabase db dump --local --schema public,storage --file /tmp/mac-learn-clean-replay.sql
-
-      - name: Export normalized replay audit
-        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -X -v ON_ERROR_STOP=1 -A -t -F $'\t' -f scripts/reconciliation-audit.sql > /tmp/mac-learn-clean-replay-audit.tsv
-
-      - name: Upload clean replay schema
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: mac-learn-clean-replay-schema
-          path: |
-            /tmp/mac-learn-clean-replay.sql
-            /tmp/mac-learn-clean-replay-audit.tsv
-          if-no-files-found: error
-          retention-days: 7
 
       - name: Stop local Supabase
         if: always()
