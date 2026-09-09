@@ -3,6 +3,13 @@ create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 select plan(22);
 
+-- Test-only transactional grants: production intentionally does not grant
+-- authenticated table SELECT on tutor_profiles or UPDATE on students. This
+-- suite needs those privileges only to exercise the existing RLS policies;
+-- rollback removes both grants.
+grant select on table public.tutor_profiles to authenticated;
+grant update on table public.students to authenticated;
+
 insert into auth.users (id,email) values
 ('15000000-0000-4000-8000-000000000001','assigned-tutor@example.test'),
 ('15000000-0000-4000-8000-000000000002','other-tutor@example.test'),
