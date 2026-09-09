@@ -2,6 +2,12 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 select plan(24);
+
+-- Test-only transactional grants: production intentionally does not grant
+-- authenticated UPDATE on students. This suite exercises the RLS policy path,
+-- so temporarily grant the minimum table privilege inside this transaction.
+grant update on table public.students to authenticated;
+
 insert into auth.users (id,email) values
 ('14000000-0000-4000-8000-000000000001','family-access@example.test'),
 ('14000000-0000-4000-8000-000000000002','legacy-parent@example.test');
