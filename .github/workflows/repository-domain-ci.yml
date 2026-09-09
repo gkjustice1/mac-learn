@@ -1,0 +1,40 @@
+name: Repository Domain CI
+
+on:
+  pull_request:
+    paths:
+      - 'packages/repository-domain/**'
+      - '.github/workflows/repository-domain-ci.yml'
+  push:
+    branches:
+      - 'agent/s1-001-1-repository-domain'
+    paths:
+      - 'packages/repository-domain/**'
+      - '.github/workflows/repository-domain-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/repository-domain
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
