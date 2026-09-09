@@ -1,5 +1,6 @@
 -- Preserve the already-applied reconciliation migration and append the PostgreSQL 17
 -- MAINTAIN and trigger-helper ACL corrections needed for production-equivalent replay.
+-- The explicit role/table lists are enforced by production_acl_reconciliation.test.sql.
 
 grant maintain on table
   public.classroom_educators,
