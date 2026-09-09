@@ -82,11 +82,13 @@ grant references, trigger, truncate on all tables in schema public to service_ro
 revoke references, trigger, truncate on table public.mac_reads_audio_assets from anon, authenticated;
 grant select, update on table public.organization_configurations to service_role;
 
--- Functions: remove PostgreSQL's default PUBLIC EXECUTE and restore only production-effective access.
+-- Functions: revoke the default surface, then restore production's exact normalized ACLs.
 revoke execute on all functions in schema public from public, anon, authenticated, service_role;
 
--- Trigger helper is intentionally executable by all three API roles in production.
-grant execute on function public.mac_set_updated_at() to anon, authenticated, service_role;
+-- Trigger helper retains PostgreSQL's production-default PUBLIC EXECUTE semantics.
+-- anon, authenticated, and service_role inherit this privilege through PUBLIC; they
+-- must not receive separate direct grants.
+grant execute on function public.mac_set_updated_at() to public;
 
 -- Service-only invitation identity helpers.
 grant execute on function public.mac_create_invited_enterprise_identity(uuid,text,text,text,uuid,uuid) to service_role;
