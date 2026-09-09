@@ -14,9 +14,10 @@ column_acl_rows as (
   from pg_attribute a
   join pg_class c on c.oid = a.attrelid
   join pg_namespace n on n.oid = c.relnamespace
-  cross join lateral aclexplode(coalesce(a.attacl, '{}'::aclitem[])) x
+  cross join lateral aclexplode(a.attacl) x
   left join pg_roles r on r.oid = x.grantee
   where n.nspname = 'public' and a.attnum > 0 and not a.attisdropped
+    and a.attacl is not null
 ),
 function_acl_rows as (
   select concat_ws('|', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid),
@@ -51,8 +52,8 @@ rls_policy_rows as (
   select concat_ws('|', n.nspname, c.relname, pol.polname, pol.polpermissive::text,
     pol.polcmd,
     coalesce((select string_agg(coalesce(r.rolname, 'PUBLIC'), ',' order by coalesce(r.rolname, 'PUBLIC'))
-      from unnest(pol.polroles) role_oid
-      left join pg_roles r on r.oid = role_oid), ''),
+      from unnest(pol.polroles) as role_oid(oid)
+      left join pg_roles r on r.oid = role_oid.oid), ''),
     coalesce(pg_get_expr(pol.polqual, pol.polrelid, true), ''),
     coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid, true), '')) as canonical
   from pg_policy pol
