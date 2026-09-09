@@ -60,3 +60,9 @@ grant maintain on all tables in schema public to service_role;
 
 revoke execute on function public.mac_set_updated_at() from anon, authenticated, service_role;
 grant execute on function public.mac_set_updated_at() to public;
+
+-- Vocabulary Studio trigger functions were added after the original ACL
+-- reconciliation migration and are service-only in production.
+grant execute on function public.mac_touch_vocab_record() to service_role;
+grant execute on function public.mac_protect_vocab_word_identity() to service_role;
+grant execute on function public.mac_protect_vocab_sense_identity() to service_role;

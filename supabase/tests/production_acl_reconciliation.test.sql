@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(23);
+select plan(24);
 
 create temporary table expected_maintain_acl (
   grantee text not null,
@@ -98,7 +98,9 @@ from unnest(array[
   'subjects',
   'tutor_availability',
   'tutor_profiles',
-  'users'
+  'users',
+  'vocab_senses',
+  'vocab_words'
 ]::text[]) as expected(table_name);
 
 select ok(not has_table_privilege('anon', 'public.students', 'select'), 'anon cannot select students');
@@ -140,8 +142,8 @@ select is(
       and acl.privilege_type = 'MAINTAIN'
       and not acl.is_grantable
   ),
-  75::bigint,
-  'public tables expose exactly 75 production-normalized API-role MAINTAIN grants'
+  77::bigint,
+  'public tables expose exactly 77 production-normalized API-role MAINTAIN grants'
 );
 
 select ok(
@@ -249,6 +251,44 @@ select is(
   ),
   0::bigint,
   'mac_set_updated_at has no direct API-role EXECUTE grants'
+);
+
+select is(
+  (
+    select coalesce(
+      string_agg(
+        concat(
+          function_definition.oid::regprocedure::text,
+          ':',
+          coalesce(grantee_role.rolname::text, 'PUBLIC'),
+          ':',
+          acl.privilege_type,
+          ':',
+          acl.is_grantable::text
+        ),
+        ','
+        order by function_definition.oid::regprocedure::text,
+          coalesce(grantee_role.rolname::text, 'PUBLIC'),
+          acl.privilege_type,
+          acl.is_grantable
+      ),
+      ''
+    )
+    from pg_proc as function_definition
+    cross join lateral aclexplode(
+      coalesce(function_definition.proacl, acldefault('f', function_definition.proowner))
+    ) as acl
+    left join pg_roles as grantee_role
+      on grantee_role.oid = acl.grantee
+    where function_definition.oid in (
+      'public.mac_protect_vocab_sense_identity()'::regprocedure,
+      'public.mac_protect_vocab_word_identity()'::regprocedure,
+      'public.mac_touch_vocab_record()'::regprocedure
+    )
+      and acl.grantee <> function_definition.proowner
+  ),
+  'mac_protect_vocab_sense_identity():service_role:EXECUTE:false,mac_protect_vocab_word_identity():service_role:EXECUTE:false,mac_touch_vocab_record():service_role:EXECUTE:false',
+  'Vocabulary Studio trigger functions have the exact production-normalized non-owner ACLs'
 );
 
 select * from finish();
