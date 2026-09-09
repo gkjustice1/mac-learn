@@ -3,8 +3,8 @@
 
 revoke all privileges on all tables in schema public from public, anon, authenticated, service_role;
 
--- anon: production exposes only MAINTAIN/REFERENCES/TRIGGER/TRUNCATE on these legacy/application tables.
-grant maintain, references, trigger, truncate on table
+-- anon: production exposes only REFERENCES/TRIGGER/TRUNCATE on these legacy/application tables.
+grant references, trigger, truncate on table
   public.classroom_educators,
   public.classroom_student_enrollments,
   public.classrooms,
@@ -32,7 +32,7 @@ grant maintain, references, trigger, truncate on table
   to anon;
 
 -- authenticated: reproduce production table-level grants exactly.
-grant delete, insert, maintain, references, select, trigger, truncate, update on table
+grant delete, insert, references, select, trigger, truncate, update on table
   public.classroom_educators,
   public.classroom_student_enrollments,
   public.classrooms,
@@ -47,7 +47,7 @@ grant delete, insert, maintain, references, select, trigger, truncate, update on
   public.users
   to authenticated;
 
-grant maintain, references, select, trigger, truncate on table
+grant references, select, trigger, truncate on table
   public.homework_uploads,
   public.organization_configurations,
   public.profiles,
@@ -57,7 +57,7 @@ grant maintain, references, select, trigger, truncate on table
   public.subjects
   to authenticated;
 
-grant insert, maintain, references, select, trigger, truncate on table
+grant insert, references, select, trigger, truncate on table
   public.progress_reports,
   public.session_notes,
   public.tutor_availability
@@ -68,7 +68,7 @@ grant select on table
   public.session_status_events
   to authenticated;
 
-grant maintain, references, trigger, truncate on table
+grant references, trigger, truncate on table
   public.payments,
   public.tutor_profiles
   to authenticated;
@@ -78,17 +78,15 @@ grant update (full_name, phone) on table public.profiles to authenticated;
 grant update (bio, subjects, grade_levels) on table public.tutor_profiles to authenticated;
 
 -- service_role: production does not have blanket DML on application tables.
-grant maintain, references, trigger, truncate on all tables in schema public to service_role;
+grant references, trigger, truncate on all tables in schema public to service_role;
 revoke references, trigger, truncate on table public.mac_reads_audio_assets from anon, authenticated;
 grant select, update on table public.organization_configurations to service_role;
 
--- Functions: revoke the default surface, then restore production's exact normalized ACLs.
+-- Functions: remove PostgreSQL's default PUBLIC EXECUTE and restore only production-effective access.
 revoke execute on all functions in schema public from public, anon, authenticated, service_role;
 
--- Trigger helper retains PostgreSQL's production-default PUBLIC EXECUTE semantics.
--- anon, authenticated, and service_role inherit this privilege through PUBLIC; they
--- must not receive separate direct grants.
-grant execute on function public.mac_set_updated_at() to public;
+-- Trigger helper is intentionally executable by all three API roles in production.
+grant execute on function public.mac_set_updated_at() to anon, authenticated, service_role;
 
 -- Service-only invitation identity helpers.
 grant execute on function public.mac_create_invited_enterprise_identity(uuid,text,text,text,uuid,uuid) to service_role;
