@@ -418,6 +418,12 @@ begin
     end if;
 
     if tg_table_name = 'vocab_language_forms' then
+      if to_jsonb(new)->'reviewed_by' is distinct from to_jsonb(old)->'reviewed_by'
+         or to_jsonb(new)->'reviewed_at' is distinct from to_jsonb(old)->'reviewed_at'
+         or to_jsonb(new)->'review_status' is distinct from to_jsonb(old)->'review_status' then
+        raise exception 'certified vocabulary review attribution is immutable'
+          using errcode = '23514';
+      end if;
       if
         to_jsonb(new)->'form_text'
           is distinct from to_jsonb(old)->'form_text'
