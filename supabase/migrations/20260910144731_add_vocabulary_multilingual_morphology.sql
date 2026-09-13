@@ -388,6 +388,15 @@ begin
 
   if tg_table_name = 'vocab_language_forms'
      and to_jsonb(old)->>'review_status' = 'verified'
+     and to_jsonb(new)->>'review_status' = 'verified'
+     and (to_jsonb(new)->'reviewed_by' is distinct from to_jsonb(old)->'reviewed_by'
+       or to_jsonb(new)->'reviewed_at' is distinct from to_jsonb(old)->'reviewed_at') then
+    raise exception 'verified vocabulary review attribution requires an explicit reset'
+      using errcode = '23514';
+  end if;
+
+  if tg_table_name = 'vocab_language_forms'
+     and to_jsonb(old)->>'review_status' = 'verified'
      and old.publication_status in ('draft', 'in_review', 'verified')
      and (to_jsonb(new) - array['updated_at', 'created_at', 'updated_by', 'created_by',
            'publication_status', 'review_status', 'reviewed_by', 'reviewed_at',

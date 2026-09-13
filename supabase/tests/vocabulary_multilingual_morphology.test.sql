@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(82);
+select plan(84);
 
 -- ============================================================
 -- MAC Learn Vocabulary Studio
@@ -970,6 +970,12 @@ insert into public.vocab_language_forms
 values ('96000000-0000-4000-8000-000000000040',
 '93000000-0000-4000-8000-000000000001','es','reviewed draft','translation',
 'verified','91000000-0000-4000-8000-000000000003',now());
+select throws_ok($$update public.vocab_language_forms set reviewed_at=reviewed_at+interval '1 day'
+where id='96000000-0000-4000-8000-000000000040'$$,
+'23514','verified vocabulary review attribution requires an explicit reset','verified draft timestamp is protected');
+select throws_ok($$update public.vocab_language_forms set reviewed_by='91000000-0000-4000-8000-000000000001'
+where id='96000000-0000-4000-8000-000000000040'$$,
+'23514','verified vocabulary review attribution requires an explicit reset','verified draft reviewer is protected');
 select throws_ok($$update public.vocab_language_forms set form_text='changed'
 where id='96000000-0000-4000-8000-000000000040'$$,
 '23514','verified vocabulary language-form content requires a new review','verified draft text is protected');
@@ -1023,10 +1029,10 @@ where id='96000000-0000-4000-8000-000000000041'$$,
 select throws_ok($$update public.vocab_language_forms
 set reviewed_by='91000000-0000-4000-8000-000000000001'
 where id='96000000-0000-4000-8000-000000000041'$$,
-'23514','certified vocabulary review attribution is immutable','published reviewer cannot be reassigned');
+'23514','verified vocabulary review attribution requires an explicit reset','published reviewer cannot be reassigned');
 select throws_ok($$update public.vocab_language_forms set reviewed_at=reviewed_at+interval '1 day'
 where id='96000000-0000-4000-8000-000000000041'$$,
-'23514','certified vocabulary review attribution is immutable','published review timestamp cannot be rewritten');
+'23514','verified vocabulary review attribution requires an explicit reset','published review timestamp cannot be rewritten');
 
 select * from finish();
 
