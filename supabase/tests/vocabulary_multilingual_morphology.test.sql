@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(60);
+select plan(68);
 
 -- ============================================================
 -- MAC Learn Vocabulary Studio
@@ -934,6 +934,36 @@ where id='91000000-0000-4000-8000-000000000003'$$,
 select throws_ok($$delete from auth.users
 where id='91000000-0000-4000-8000-000000000003'$$,
 '23503',null,'Auth user deletion cannot cascade away referenced review attribution');
+
+select throws_ok($$update public.vocab_language_forms set form_text='unreviewed replacement'
+where id='96000000-0000-4000-8000-000000000001'$$,
+'23514','certified vocabulary language-form identity is immutable','published translation text cannot inherit an earlier review');
+select throws_ok($$update public.vocab_morphemes set morpheme='replacement'
+where id='95000000-0000-4000-8000-000000000010'$$,
+'23514','certified vocabulary morpheme identity is immutable','certified morpheme text is immutable');
+select throws_ok($$update public.vocab_morphemes set morpheme='replacement'
+where id='95000000-0000-4000-8000-000000000001'$$,
+'23514','certified vocabulary morpheme identity is immutable','published linked morpheme text is immutable');
+insert into public.vocab_morphemes(id,canonical_code,morpheme,morpheme_type)
+values ('95000000-0000-4000-8000-000000000030','MORPH-UNPUBLISHED','unpublished','root');
+select throws_ok($$insert into public.vocab_word_morphemes
+(word_id,morpheme_id,sequence_order,relationship_type,publication_status) values
+('93000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000030',3,'root_component','published')$$,
+'23514','published morphology links require a published morpheme','unpublished units cannot receive published links');
+select lives_ok($$insert into public.vocab_word_morphemes
+(id,word_id,morpheme_id,sequence_order,relationship_type) values
+('97000000-0000-4000-8000-000000000030','93000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000030',3,'root_component')$$,
+'draft composition can reference a draft unit');
+select throws_ok($$update public.vocab_word_morphemes set publication_status='published'
+where id='97000000-0000-4000-8000-000000000030'$$,
+'23514','published morphology links require a published morpheme','publishing a draft link requires a published unit');
+select throws_ok($$update public.vocab_morphemes set publication_status='deprecated'
+where id='95000000-0000-4000-8000-000000000001'$$,
+'23514','published morphology links require a published morpheme','a unit cannot be hidden while published links reference it');
+select ok(not has_function_privilege('anon','public.mac_require_published_morpheme()','EXECUTE')
+and not has_function_privilege('authenticated','public.mac_require_published_morpheme()','EXECUTE')
+and has_function_privilege('service_role','public.mac_require_published_morpheme()','EXECUTE'),
+'publication consistency trigger helper has restricted EXECUTE permissions');
 
 select * from finish();
 

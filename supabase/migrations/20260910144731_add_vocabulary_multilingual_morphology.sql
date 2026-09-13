@@ -363,6 +363,18 @@ begin
     return old;
   end if;
 
+  -- A reusable unit cannot become hidden while published links still use it.
+  -- The row lock taken by UPDATE conflicts with the link trigger's FOR SHARE.
+  if tg_table_name = 'vocab_morphemes'
+     and new.publication_status <> 'published'
+     and exists (
+       select 1 from public.vocab_word_morphemes
+       where morpheme_id = old.id and publication_status = 'published'
+     ) then
+    raise exception 'published morphology links require a published morpheme'
+      using errcode = '23514';
+  end if;
+
   if new.id is distinct from old.id then
     raise exception
       'vocabulary record id is immutable'
@@ -388,6 +400,9 @@ begin
 
     if tg_table_name = 'vocab_language_forms' then
       if
+        to_jsonb(new)->'form_text'
+          is distinct from to_jsonb(old)->'form_text'
+        or
         to_jsonb(new)->'word_id'
           is distinct from to_jsonb(old)->'word_id'
         or
@@ -411,6 +426,9 @@ begin
 
     if tg_table_name = 'vocab_morphemes' then
       if
+        to_jsonb(new)->'morpheme'
+          is distinct from to_jsonb(old)->'morpheme'
+        or
         to_jsonb(new)->'canonical_code'
           is distinct from to_jsonb(old)->'canonical_code'
         or
@@ -479,8 +497,38 @@ create trigger vocab_word_morphemes_protect_identity
 
 
 -- ============================================================
--- 6. Row Level Security
+-- 6. Publication consistency and Row Level Security
 -- ============================================================
+
+-- Validate publication before links become readable, avoiding cyclic RLS
+-- between links and morphemes. FOR SHARE serializes with unit status updates.
+create function public.mac_require_published_morpheme()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  unit_status public.vocab_publication_status;
+begin
+  if new.publication_status = 'published' then
+    select publication_status into unit_status
+    from public.vocab_morphemes where id = new.morpheme_id
+    for share;
+    if unit_status is distinct from 'published'::public.vocab_publication_status then
+      raise exception 'published morphology links require a published morpheme'
+        using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.mac_require_published_morpheme()
+  from public, anon, authenticated, service_role;
+grant execute on function public.mac_require_published_morpheme() to service_role;
+create trigger vocab_word_morphemes_require_published_unit
+  before insert or update on public.vocab_word_morphemes
+  for each row execute function public.mac_require_published_morpheme();
 
 alter table public.vocab_language_forms
   enable row level security;
