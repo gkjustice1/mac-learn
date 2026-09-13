@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(68);
+select plan(73);
 
 -- ============================================================
 -- MAC Learn Vocabulary Studio
@@ -964,6 +964,31 @@ select ok(not has_function_privilege('anon','public.mac_require_published_morphe
 and not has_function_privilege('authenticated','public.mac_require_published_morpheme()','EXECUTE')
 and has_function_privilege('service_role','public.mac_require_published_morpheme()','EXECUTE'),
 'publication consistency trigger helper has restricted EXECUTE permissions');
+
+insert into public.vocab_language_forms
+(id,word_id,language_code,form_text,form_type,review_status,reviewed_by,reviewed_at)
+values ('96000000-0000-4000-8000-000000000040',
+'93000000-0000-4000-8000-000000000001','es','reviewed draft','translation',
+'verified','91000000-0000-4000-8000-000000000003',now());
+select throws_ok($$update public.vocab_language_forms set form_text='changed'
+where id='96000000-0000-4000-8000-000000000040'$$,
+'23514','verified vocabulary language-form content requires a new review','verified draft text is protected');
+update public.vocab_language_forms set publication_status='in_review'
+where id='96000000-0000-4000-8000-000000000040';
+select throws_ok($$update public.vocab_language_forms set locale_code='es'
+where id='96000000-0000-4000-8000-000000000040'$$,
+'23514','verified vocabulary language-form content requires a new review','reviewed identity is protected while in review');
+update public.vocab_language_forms set publication_status='verified'
+where id='96000000-0000-4000-8000-000000000040';
+select throws_ok($$update public.vocab_language_forms set form_text='changed',publication_status='published'
+where id='96000000-0000-4000-8000-000000000040'$$,
+'23514','verified vocabulary language-form content requires a new review','editing and publishing together cannot reuse verification');
+select throws_ok($$update public.vocab_language_forms set form_text='changed',review_status='unreviewed'
+where id='96000000-0000-4000-8000-000000000040'$$,
+'23514','verified vocabulary language-form content requires a new review','same-update review reset cannot bypass the content guard');
+select lives_ok($$update public.vocab_language_forms set publication_status='published'
+where id='96000000-0000-4000-8000-000000000040'$$,
+'unchanged reviewed content can be published');
 
 select * from finish();
 

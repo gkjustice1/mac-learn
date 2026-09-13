@@ -381,6 +381,20 @@ begin
       using errcode = '23514';
   end if;
 
+  if tg_table_name = 'vocab_language_forms'
+     and to_jsonb(old)->>'review_status' = 'verified'
+     and old.publication_status in ('draft', 'in_review', 'verified')
+     and (to_jsonb(new) - array['updated_at', 'created_at', 'updated_by', 'created_by',
+           'publication_status', 'review_status', 'reviewed_by', 'reviewed_at',
+           'source_reference', 'version_number', 'normalized_form'])
+       is distinct from
+         (to_jsonb(old) - array['updated_at', 'created_at', 'updated_by', 'created_by',
+           'publication_status', 'review_status', 'reviewed_by', 'reviewed_at',
+           'source_reference', 'version_number', 'normalized_form']) then
+    raise exception 'verified vocabulary language-form content requires a new review'
+      using errcode = '23514';
+  end if;
+
   if old.publication_status in (
     'certified',
     'published',
