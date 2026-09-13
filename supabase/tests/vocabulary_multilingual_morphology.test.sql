@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(58);
+select plan(60);
 
 -- ============================================================
 -- MAC Learn Vocabulary Studio
@@ -927,6 +927,13 @@ $$select t collate "C", r collate "C", p collate "C" from
 cross join (values ('authenticated','SELECT'),('service_role','SELECT'),('service_role','INSERT'),('service_role','UPDATE'),('service_role','DELETE'),('service_role','MAINTAIN')) grants(r,p)
 order by 1,2,3$$,
 'exact non-owner ACLs exclude anonymous access, truncate and unexpected grants');
+
+select throws_ok($$delete from public.users
+where id='91000000-0000-4000-8000-000000000003'$$,
+'23503',null,'reviewer deletion is explicitly restricted while attribution is referenced');
+select throws_ok($$delete from auth.users
+where id='91000000-0000-4000-8000-000000000003'$$,
+'23503',null,'Auth user deletion cannot cascade away referenced review attribution');
 
 select * from finish();
 

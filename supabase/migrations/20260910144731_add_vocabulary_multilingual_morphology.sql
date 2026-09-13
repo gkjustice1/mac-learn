@@ -66,9 +66,11 @@ create table public.vocab_language_forms (
       )
     ),
 
+  -- Preserve attribution: retire reviewer accounts instead of hard-deleting
+  -- users referenced by governed language forms.
   reviewed_by uuid
     references public.users(id)
-    on delete set null,
+    on delete restrict,
 
   reviewed_at timestamptz,
 
