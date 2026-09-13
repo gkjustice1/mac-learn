@@ -89,6 +89,12 @@ create table public.vocab_language_forms (
     references public.vocab_senses(id, word_id)
     on delete restrict,
 
+  constraint vocab_language_forms_publication_review_check
+    check (
+      publication_status not in ('certified', 'published')
+      or review_status = 'verified'
+    ),
+
   constraint vocab_language_forms_review_consistency_check
     check (
       (review_status in ('unreviewed', 'in_review', 'rejected'))
@@ -277,10 +283,9 @@ create table public.vocab_word_morphemes (
     on delete restrict,
 
   constraint vocab_word_morphemes_position_unique
-    unique (
+    unique nulls not distinct (
       word_id,
       sense_id,
-      morpheme_id,
       sequence_order
     )
 );
@@ -623,15 +628,15 @@ using (
 
 revoke all
   on table public.vocab_language_forms
-  from anon, authenticated;
+  from public, anon, authenticated, service_role;
 
 revoke all
   on table public.vocab_morphemes
-  from anon, authenticated;
+  from public, anon, authenticated, service_role;
 
 revoke all
   on table public.vocab_word_morphemes
-  from anon, authenticated;
+  from public, anon, authenticated, service_role;
 
 
 grant select

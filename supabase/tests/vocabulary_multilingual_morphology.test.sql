@@ -1,6 +1,9 @@
 begin;
 
-select plan(36);
+create extension if not exists pgtap with schema extensions;
+set search_path = public, extensions;
+
+select plan(58);
 
 -- ============================================================
 -- MAC Learn Vocabulary Studio
@@ -210,7 +213,8 @@ select is(
 -- 5. Fixture data
 -- ============================================================
 
-set local role service_role;
+-- Identity fixtures use the test runner, matching US01. The service role
+-- intentionally does not have blanket DML privileges on enterprise tables.
 
 insert into auth.users (id, email)
 values
@@ -280,6 +284,8 @@ values
     null,
     'active'
   );
+
+set local role service_role;
 
 insert into public.vocab_words (
   id,
@@ -836,6 +842,91 @@ select is(
   'VS-E01-US02 contains no Story 30 vocabulary seed'
 );
 
+
+-- Additional boundary and authorization regression coverage.
+select throws_ok($$insert into public.vocab_word_morphemes
+(word_id,morpheme_id,sequence_order,relationship_type) values
+('93000000-0000-4000-8000-000000000002','95000000-0000-4000-8000-000000000002',1,'root_component')$$,
+'23505',null,'different morphemes cannot occupy the same word-level position');
+select throws_ok($$insert into public.vocab_word_morphemes
+(word_id,sense_id,morpheme_id,sequence_order,relationship_type) values
+('93000000-0000-4000-8000-000000000001','94000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000002',1,'root_component')$$,
+'23505',null,'different morphemes cannot occupy the same sense-level position');
+select throws_ok($$update public.vocab_language_forms set review_status='unreviewed'
+where id='96000000-0000-4000-8000-000000000001'$$,
+'23514',null,'published forms cannot lose verified review');
+select throws_ok($$insert into public.vocab_language_forms
+(word_id,language_code,form_text,form_type,publication_status,review_status)
+values ('93000000-0000-4000-8000-000000000001','ht','transfome','translation','certified','unreviewed')$$,
+'23514',null,'certified translations require verified review');
+select throws_ok($$insert into public.vocab_language_forms
+(word_id,language_code,form_text,form_type,review_status)
+values ('93000000-0000-4000-8000-000000000001','ht','transfome','translation','verified')$$,
+'23514',null,'verified translations require reviewer and timestamp');
+
+insert into public.vocab_language_forms
+(id,word_id,language_code,form_text,form_type)
+values ('96000000-0000-4000-8000-000000000010','93000000-0000-4000-8000-000000000001','ht','transfome','translation');
+select throws_ok($$update public.vocab_language_forms set publication_status='published'
+where id='96000000-0000-4000-8000-000000000010'$$,
+'23514',null,'draft translation cannot be published without review');
+select lives_ok($$update public.vocab_language_forms set publication_status='published',
+review_status='verified',reviewed_by='91000000-0000-4000-8000-000000000003',reviewed_at=now()
+where id='96000000-0000-4000-8000-000000000010'$$,
+'publication succeeds with complete verified review');
+
+insert into public.vocab_words
+(id,canonical_code,lemma,display_word,primary_part_of_speech,publication_status)
+values ('93000000-0000-4000-8000-000000000010','VS-US02-DRAFT','draftparent','Draftparent','noun','draft');
+insert into public.vocab_senses
+(id,word_id,sense_key,sense_number,student_definition,publication_status)
+values ('94000000-0000-4000-8000-000000000010','93000000-0000-4000-8000-000000000001','draft-sense',2,'Draft sense','draft');
+insert into public.vocab_morphemes (id,canonical_code,morpheme,morpheme_type,publication_status) values
+('95000000-0000-4000-8000-000000000020','MORPH-A','tenant-a','root','published'),
+('95000000-0000-4000-8000-000000000021','MORPH-B','tenant-b','root','published'),
+('95000000-0000-4000-8000-000000000022','MORPH-DRAFT-PARENT','draft-parent','root','published'),
+('95000000-0000-4000-8000-000000000023','MORPH-DRAFT-SENSE','draft-sense','root','published'),
+('95000000-0000-4000-8000-000000000024','MORPH-UNLINKED','unlinked','root','published'),
+('95000000-0000-4000-8000-000000000025','MORPH-DRAFT-LINK','draft-link','root','published');
+insert into public.vocab_word_morphemes
+(id,word_id,sense_id,morpheme_id,sequence_order,relationship_type,publication_status) values
+('97000000-0000-4000-8000-000000000020','93000000-0000-4000-8000-000000000002',null,'95000000-0000-4000-8000-000000000020',2,'root_component','published'),
+('97000000-0000-4000-8000-000000000021','93000000-0000-4000-8000-000000000003',null,'95000000-0000-4000-8000-000000000021',1,'root_component','published'),
+('97000000-0000-4000-8000-000000000022','93000000-0000-4000-8000-000000000010',null,'95000000-0000-4000-8000-000000000022',1,'root_component','published'),
+('97000000-0000-4000-8000-000000000023','93000000-0000-4000-8000-000000000001','94000000-0000-4000-8000-000000000010','95000000-0000-4000-8000-000000000023',1,'root_component','published'),
+('97000000-0000-4000-8000-000000000025','93000000-0000-4000-8000-000000000001',null,'95000000-0000-4000-8000-000000000025',1,'root_component','draft');
+insert into public.vocab_language_forms
+(id,word_id,sense_id,language_code,form_text,form_type,publication_status,review_status,reviewed_by,reviewed_at) values
+('96000000-0000-4000-8000-000000000020','93000000-0000-4000-8000-000000000010',null,'es','draft parent translation','translation','published','verified','91000000-0000-4000-8000-000000000003',now()),
+('96000000-0000-4000-8000-000000000021','93000000-0000-4000-8000-000000000001','94000000-0000-4000-8000-000000000010','es','draft sense translation','translation','published','verified','91000000-0000-4000-8000-000000000003',now());
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"91000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select is((select count(*) from public.vocab_word_morphemes where id='97000000-0000-4000-8000-000000000020'),1::bigint,'tenant A sees its own published morphology link');
+select is((select count(*) from public.vocab_word_morphemes where id='97000000-0000-4000-8000-000000000021'),0::bigint,'tenant A cannot see tenant B morphology link');
+select is((select count(*) from public.vocab_morphemes where id='95000000-0000-4000-8000-000000000020'),1::bigint,'tenant A sees morpheme used by its visible link');
+select is((select count(*) from public.vocab_morphemes where id='95000000-0000-4000-8000-000000000021'),0::bigint,'tenant A cannot see morpheme used only by tenant B');
+select is((select count(*) from public.vocab_word_morphemes where id in ('97000000-0000-4000-8000-000000000022','97000000-0000-4000-8000-000000000023','97000000-0000-4000-8000-000000000025')),0::bigint,'draft parent, sense and link hide morphology links');
+select is((select count(*) from public.vocab_morphemes where id in ('95000000-0000-4000-8000-000000000022','95000000-0000-4000-8000-000000000023','95000000-0000-4000-8000-000000000024','95000000-0000-4000-8000-000000000025')),0::bigint,'unlinked morphemes and morphemes with only invisible links are hidden');
+select is((select count(*) from public.vocab_language_forms where id in ('96000000-0000-4000-8000-000000000020','96000000-0000-4000-8000-000000000021')),0::bigint,'draft parent and sense hide published translations');
+select throws_ok($$delete from public.vocab_word_morphemes where id='97000000-0000-4000-8000-000000000020'$$,'42501',null,'authenticated cannot directly delete a visible morphology link');
+select set_config('request.jwt.claims','{"sub":"91000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select is((select count(*) from public.vocab_morphemes where id='95000000-0000-4000-8000-000000000021'),1::bigint,'tenant B sees its own linked morpheme');
+select is((select count(*) from public.vocab_word_morphemes where id='97000000-0000-4000-8000-000000000020'),0::bigint,'tenant B cannot see tenant A morphology link');
+reset role;
+
+select results_eq(
+$$select c.relname::text, coalesce(r.rolname,'PUBLIC')::text, a.privilege_type::text
+from pg_class c join pg_namespace n on n.oid=c.relnamespace
+cross join lateral aclexplode(c.relacl) a left join pg_roles r on r.oid=a.grantee
+where n.nspname='public' and c.relname in ('vocab_language_forms','vocab_morphemes','vocab_word_morphemes')
+and a.grantee <> c.relowner order by 1,2,3$$,
+$$select t, r, p from
+(values ('vocab_language_forms'),('vocab_morphemes'),('vocab_word_morphemes')) tables(t)
+cross join (values ('authenticated','SELECT'),('service_role','SELECT'),('service_role','INSERT'),('service_role','UPDATE'),('service_role','DELETE'),('service_role','MAINTAIN')) grants(r,p)
+order by 1,2,3$$,
+'exact non-owner ACLs exclude anonymous access, truncate and unexpected grants');
 
 select * from finish();
 
