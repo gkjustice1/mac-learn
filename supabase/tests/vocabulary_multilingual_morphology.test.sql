@@ -917,12 +917,12 @@ select is((select count(*) from public.vocab_word_morphemes where id='97000000-0
 reset role;
 
 select results_eq(
-$$select c.relname::text, coalesce(r.rolname,'PUBLIC')::text, a.privilege_type::text
+$$select c.relname::text collate "C", coalesce(r.rolname::text,'PUBLIC') collate "C", a.privilege_type::text collate "C"
 from pg_class c join pg_namespace n on n.oid=c.relnamespace
 cross join lateral aclexplode(c.relacl) a left join pg_roles r on r.oid=a.grantee
 where n.nspname='public' and c.relname in ('vocab_language_forms','vocab_morphemes','vocab_word_morphemes')
 and a.grantee <> c.relowner order by 1,2,3$$,
-$$select t, r, p from
+$$select t collate "C", r collate "C", p collate "C" from
 (values ('vocab_language_forms'),('vocab_morphemes'),('vocab_word_morphemes')) tables(t)
 cross join (values ('authenticated','SELECT'),('service_role','SELECT'),('service_role','INSERT'),('service_role','UPDATE'),('service_role','DELETE'),('service_role','MAINTAIN')) grants(r,p)
 order by 1,2,3$$,
