@@ -91,6 +91,10 @@ create table public.vocab_language_forms (
     references public.vocab_senses(id, word_id)
     on delete restrict,
 
+  constraint vocab_language_forms_locale_language_check
+    check (locale_code is null or
+      split_part(locale_code, '-', 1) = split_part(language_code, '-', 1)),
+
   constraint vocab_language_forms_publication_review_check
     check (
       publication_status not in ('certified', 'published')
@@ -99,7 +103,8 @@ create table public.vocab_language_forms (
 
   constraint vocab_language_forms_review_consistency_check
     check (
-      (review_status in ('unreviewed', 'in_review', 'rejected'))
+      (review_status in ('unreviewed', 'in_review', 'rejected')
+        and reviewed_by is null and reviewed_at is null)
       or
       (
         review_status = 'verified'

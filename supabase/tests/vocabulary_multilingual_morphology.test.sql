@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(73);
+select plan(80);
 
 -- ============================================================
 -- MAC Learn Vocabulary Studio
@@ -989,6 +989,36 @@ where id='96000000-0000-4000-8000-000000000040'$$,
 select lives_ok($$update public.vocab_language_forms set publication_status='published'
 where id='96000000-0000-4000-8000-000000000040'$$,
 'unchanged reviewed content can be published');
+
+insert into public.vocab_language_forms
+(id,word_id,language_code,form_text,form_type,review_status,reviewed_by,reviewed_at)
+values ('96000000-0000-4000-8000-000000000041',
+'93000000-0000-4000-8000-000000000001','es','reset review fixture','translation',
+'verified','91000000-0000-4000-8000-000000000003',now());
+select throws_ok($$update public.vocab_language_forms set review_status='unreviewed'
+where id='96000000-0000-4000-8000-000000000041'$$,
+'23514',null,'resetting verification must clear attribution');
+select lives_ok($$update public.vocab_language_forms
+set review_status='unreviewed',reviewed_by=null,reviewed_at=null
+where id='96000000-0000-4000-8000-000000000041'$$,
+'explicit review reset clears prior attribution');
+select lives_ok($$update public.vocab_language_forms set form_text='new revision'
+where id='96000000-0000-4000-8000-000000000041'$$,
+'unreviewed revision can be edited');
+select throws_ok($$update public.vocab_language_forms
+set review_status='verified',publication_status='published'
+where id='96000000-0000-4000-8000-000000000041'$$,
+'23514',null,'edited revision cannot publish without fresh attribution');
+select throws_ok($$update public.vocab_language_forms set locale_code='fr-CA'
+where id='96000000-0000-4000-8000-000000000041'$$,
+'23514',null,'locale primary language must match form language');
+select lives_ok($$update public.vocab_language_forms set locale_code='es-MX'
+where id='96000000-0000-4000-8000-000000000041'$$,
+'matching regional locale is accepted');
+select lives_ok($$update public.vocab_language_forms set review_status='verified',
+reviewed_by='91000000-0000-4000-8000-000000000003',reviewed_at=clock_timestamp(),publication_status='published'
+where id='96000000-0000-4000-8000-000000000041'$$,
+'new revision can publish with explicit review attribution');
 
 select * from finish();
 
