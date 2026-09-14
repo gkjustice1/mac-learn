@@ -125,6 +125,12 @@ select ok(has_function_privilege('authenticated', 'public.mac_current_user_roles
 select ok(not has_function_privilege('anon', 'public.mac_current_user_roles()', 'execute'), 'anon cannot execute authorization context RPC');
 select ok(has_function_privilege('anon', 'public.mac_set_updated_at()', 'execute'), 'anon retains production-equivalent trigger-helper EXECUTE');
 
+-- US02 adds three explicitly authorized service-role MAINTAIN grants.
+insert into expected_maintain_acl (grantee, table_name) values
+  ('service_role', 'vocab_language_forms'),
+  ('service_role', 'vocab_morphemes'),
+  ('service_role', 'vocab_word_morphemes');
+
 select is(
   (
     select count(*)::bigint
@@ -142,8 +148,8 @@ select is(
       and acl.privilege_type = 'MAINTAIN'
       and not acl.is_grantable
   ),
-  77::bigint,
-  'public tables expose exactly 77 production-normalized API-role MAINTAIN grants'
+  80::bigint,
+  'public tables expose exactly 77 reconciled plus 3 US02 API-role MAINTAIN grants'
 );
 
 select ok(
