@@ -75,6 +75,7 @@ set timezone = (
   where organization_id = '27000000-0000-4000-8000-000000000001'
 )
 where id = '37000000-0000-4000-8000-000000000001';
+select set_config('request.jwt.claims', '{"sub":"17000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 update public.classroom_student_enrollments
 set enrolled_from = public.mac_relationship_calendar_date(
       '77000000-0000-4000-8000-000000000001',
