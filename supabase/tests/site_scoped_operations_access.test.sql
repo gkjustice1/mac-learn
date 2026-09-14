@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(9);
+select plan(12);
 
 insert into auth.users (id, email) values
   ('18000000-0000-4000-8000-000000000001', 'site-admin@example.test'),
@@ -39,6 +39,9 @@ insert into public.educator_instructional_records (organization_id, classroom_id
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"18000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select ok(public.mac_is_site_classroom_admin('28000000-0000-4000-8000-000000000001','88000000-0000-4000-8000-000000000001'), 'site administrator helper admits own classroom');
+select ok(not public.mac_is_site_classroom_admin('28000000-0000-4000-8000-000000000001','88000000-0000-4000-8000-000000000002'), 'site administrator helper denies other site classroom');
+select ok(not public.mac_is_site_classroom_admin('28000000-0000-4000-8000-000000000099','88000000-0000-4000-8000-000000000001'), 'classroom helper rejects mismatched tenant');
 select is((select count(*) from public.classrooms), 1::bigint, 'a site admin views only their site classrooms');
 select is((select count(*) from public.classroom_student_enrollments), 1::bigint, 'a site admin views only their site enrollments');
 select is((select count(*) from public.educator_instructional_records), 1::bigint, 'a site admin views only their site instructional records');

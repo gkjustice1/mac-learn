@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(24);
+select plan(40);
 
 -- Test-only transactional grants: production intentionally does not grant
 -- authenticated UPDATE on students. This suite exercises the RLS policy path,
@@ -56,6 +56,11 @@ select ok(
 );
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select ok(public.mac_is_enterprise_user(), 'active enterprise identity is recognized');
+select ok(not public.mac_can_use_legacy_admin_access(), 'enterprise guardian cannot use legacy administration');
+select ok(not public.mac_can_use_legacy_family_link('24000000-0000-4000-8000-000000000001'), 'canonical guardian replaces legacy family eligibility');
+select ok(public.mac_family_can_view_organization('24000000-0000-4000-8000-000000000001'), 'guardian scope helper admits assigned organization');
+select ok(not public.mac_family_can_view_organization('24000000-0000-4000-8000-000000000099'), 'guardian scope helper denies unassigned organization');
 select is((select count(*) from public.guardians),1::bigint,'a guardian can view only their own guardian record');
 select is((select count(*) from public.guardian_student_relationships),1::bigint,'a guardian can view only active educational relationships');
 select is((select count(*) from public.students),1::bigint,'a guardian can view a student linked by an active educational relationship');
@@ -83,6 +88,7 @@ where user_id = '14000000-0000-4000-8000-000000000001'
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select is((select count(*) from public.students),0::bigint,'revoking the guardian role immediately removes linked-student access');
+select ok(not public.mac_family_can_view_organization('24000000-0000-4000-8000-000000000001'), 'revoked guardian role removes organization helper access');
 reset role;
 update public.role_assignments
 set status = 'active'
@@ -97,6 +103,9 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 select is((select count(*) from public.students),3::bigint,'a legacy administrator retains student access during enterprise migration');
+select ok(public.mac_can_use_legacy_admin_access(), 'unmigrated identity remains legacy eligible');
+select ok(public.mac_can_use_legacy_family_link('24000000-0000-4000-8000-000000000001'), 'unmigrated identity remains family-link eligible');
+select ok(not public.mac_is_enterprise_user(), 'legacy identity is not an enterprise identity');
 reset role;
 insert into public.people (id,first_name,last_name) values ('34000000-0000-4000-8000-000000000005','Disabled','Admin');
 insert into public.users (id,person_id,account_status) values ('14000000-0000-4000-8000-000000000002','34000000-0000-4000-8000-000000000005','active');
@@ -113,12 +122,22 @@ update public.users set account_status='disabled' where id='14000000-0000-4000-8
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select is((select count(*) from public.students),0::bigint,'a disabled enterprise guardian cannot regain legacy student access');
+select ok(not public.mac_is_enterprise_user(), 'disabled identity is not an active enterprise user');
+select ok(not public.mac_can_use_legacy_family_link('24000000-0000-4000-8000-000000000001'), 'disabled guardian cannot regain legacy eligibility');
+select ok(not public.mac_family_can_view_organization('24000000-0000-4000-8000-000000000001'), 'disabled guardian loses organization scope');
 reset role;
 delete from public.guardian_student_relationships where guardian_id='44000000-0000-4000-8000-000000000001';
 delete from public.guardians where id='44000000-0000-4000-8000-000000000001';
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select is((select count(*) from public.students),0::bigint,'a disabled enterprise identity without a guardian record cannot use legacy access');
+select ok(not public.mac_can_use_legacy_family_link('24000000-0000-4000-8000-000000000001'), 'disabled identity without guardian is denied by family eligibility itself');
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims','{}',true);
+select ok(public.mac_can_use_legacy_admin_access() and public.mac_can_use_legacy_family_link('24000000-0000-4000-8000-000000000001'), 'legacy eligibility alone is not authentication');
+select is((select count(*) from public.students),0::bigint,'missing identity cannot use eligibility helpers to read students');
+select ok(not public.mac_is_enterprise_user() and not public.mac_family_can_view_organization('24000000-0000-4000-8000-000000000001'), 'missing identity has no enterprise or family scope');
 reset role;
 select * from finish();
 rollback;
