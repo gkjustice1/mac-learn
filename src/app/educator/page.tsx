@@ -83,7 +83,7 @@ function pageHref(
     if (current && current !== "1") query.set(key, current);
   }
   const serialized = query.toString();
-  return `${serialized ? `?${serialized}` : ""}#${anchor}`;
+  return `/educator${serialized ? `?${serialized}` : ""}#${anchor}`;
 }
 
 function normalizedPageHref(

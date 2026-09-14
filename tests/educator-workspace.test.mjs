@@ -1,7 +1,32 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import ts from "typescript";
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+
+test("Previous clears the last page query for every Educator section", async () => {
+  const page = await read("src/app/educator/page.tsx");
+  const helper = page.slice(page.indexOf("function pageHref("), page.indexOf("function normalizedPageHref("));
+  const js = ts.transpileModule(helper, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  const pageHref = new Function(`${js}; return pageHref;`)();
+  const sections = { classroomPage: "classrooms", studentPage: "students", recordPage: "instructional-records" };
+  for (const [parameter, anchor] of Object.entries(sections)) {
+    const current = `https://example.test/educator?${parameter}=2#${anchor}`;
+    const previous = new URL(pageHref({ [parameter]: "2" }, parameter, 1, anchor), current);
+    assert.equal(previous.pathname, "/educator");
+    assert.equal(previous.search, "");
+    assert.equal(previous.hash, `#${anchor}`);
+    const allPages = { classroomPage: "2", studentPage: "2", recordPage: "2" };
+    const independent = new URL(pageHref(allPages, parameter, 1, anchor), current);
+    assert.equal(independent.searchParams.has(parameter), false);
+    for (const other of Object.keys(sections).filter((key) => key !== parameter)) {
+      assert.equal(independent.searchParams.get(other), "2");
+    }
+    const next = new URL(pageHref({}, parameter, 2, anchor), previous);
+    assert.equal(next.searchParams.get(parameter), "2");
+    assert.equal(next.hash, `#${anchor}`);
+  }
+});
 
 test("Teacher and Academic Lead assignments route to the secure Educator workspace", async () => {
   const [resolver, page] = await Promise.all([read("src/lib/auth/workspace.ts"), read("src/app/educator/page.tsx")]);
