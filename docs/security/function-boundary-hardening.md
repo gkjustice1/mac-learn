@@ -1,6 +1,6 @@
 # Function boundary hardening — 2026-09-14
 
-Status: branch implementation; production migration and broader security gate pending.
+Status: PR #53 merged as 8cb26d0; production migration 20260914152633 applied and verified. Broader security gate remains open; see security-definer-register.md.
 Base: main 85d41b498302654566a0fb3487c90cc09c9e3855.
 
 ## Four functions
@@ -20,8 +20,7 @@ Base: main 85d41b498302654566a0fb3487c90cc09c9e3855.
 
 ## Separate Auth configuration gate
 
-Read-only organization lookup confirms Supabase Pro. Leaked-password protection is supported by this plan, but the available Supabase connector has no Auth-configuration update endpoint. No Auth setting was changed in this branch work.
-Enable the leaked-password control in the project's Auth settings, save, and rerun the security advisor to verify `auth_leaked_password_protection` is absent. Do not change password length, signup policy, or billing as part of this request.
+Supabase Pro confirmed. George enabled leaked-password protection in Auth settings; the live advisor no longer reports the disabled-protection warning. No billing or other password-policy changes were made.
 Reference: https://supabase.com/docs/guides/auth/password-security
 
-The broader security gate remains open until checks and review pass, the production hardening is deployed and verified, and leaked-password protection is confirmed enabled (or an explicit exception is documented). This document does not accept the other advisor warnings as a blanket exception.
+The clean replay passed 456 assertions in 22 files; Quality and Vercel status passed, and Codex completed without findings. The four production bodies and ACLs match reviewed SQL; denied-access smoke checks passed. Remaining warning dispositions and broader release gates are tracked in security-definer-register.md and ../certification/m1-vocabulary-release-checklist.md. This document does not accept the other advisor warnings as a blanket exception.
