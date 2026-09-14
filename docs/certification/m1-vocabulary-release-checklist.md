@@ -8,9 +8,9 @@ Decision: **BROADER CERTIFICATION OPEN**. This is a reconciliation of available 
 | Gate | Status | Evidence / remaining condition |
 |---|---|---|
 | Tenant/organization/site foundations | Implemented; full story certification not asserted | Merged PRs #5, #13, #14, #20, #21; organization configuration and tenant-context tests. Overview routes do not by themselves establish every location-management acceptance criterion. |
-| Identity, roles, lifecycle and provisioning | Implemented; security acceptance open | PRs #8–#11, #15–#18, #23–#24, #29–#33; identity, role lifecycle, invitation scope and grants tests. Resolve legacy compatibility and invitation RPC evidence gaps in security register. |
+| Identity, roles, lifecycle and provisioning | Implemented; security acceptance open | PRs #8–#11, #15–#18, #23–#24, #29–#33; identity, role lifecycle, invitation scope and grants tests. Resolve legacy compatibility and remaining indirect-helper evidence gaps in security register. Direct invitation RPC coverage is added by PR #55. |
 | Tutor workspace and operations | Implemented | PRs #34–#39, #41; tutor data/operations tests. Confirm historical session access retention decision and post-hardening browser checks. |
-| Family and Student workspaces | Implemented | PRs #40, #42, #43; family/student tests. Direct invitation RPC SQL coverage remains to be strengthened. |
+| Family and Student workspaces | Implemented | PRs #40, #42, #43; family/student tests. Direct invitation RPC SQL gap closed by PR #55: 34 new assertions, 490 total passing on clean replay. |
 | Educator workspace and pagination | Original browser blocker cleared | PRs #44 and #52; user confirmed all three Next→Previous controls return to page one and remove page parameters. Academic Lead unauthorized-route and sign-out checks passed per session evidence. Repeat critical paths after PR #53 migration. |
 | Historical migration replay / ACL reconciliation | Prior blocker cleared | PRs #46, #48, #49; production `20260909171010`; current clean replay passed. Do not reuse historic object counts as current counts after later migrations. |
 | Dependency vulnerability repair | Repair completed | PR #51; Quality includes npm audit. Main application Quality passed after #53. This is the audit result at that commit, not a promise about future advisories. |
@@ -26,7 +26,7 @@ Decision: **BROADER CERTIFICATION OPEN**. This is a reconciliation of available 
 
 ## Immediate closure order
 
-1. Review the 38-function register; close Student invitation RPC test gaps and map helper/policy dependencies. Do not equate a direct name reference with complete regression coverage.
+1. Review the 38-function register and map remaining helper/policy dependencies. Student invitation direct RPC test gaps are closed by PR #55 (34 new assertions; 490 total passing). Do not equate a direct name reference with complete regression coverage.
 2. Resolve explicit legacy, calendar metadata and historical tutor-access decisions with the product/security owner; record rationale, scope and retirement/review trigger where retained.
 3. Confirm latest production alias and rerun role smoke checks after the hardening migration: authorized workspace, cross-scope denial, invitation authorization, pagination and sign-out.
 4. Reconcile every remaining M1 and Vocabulary acceptance criterion against the master specification and capture concrete evidence. No completion percentage is defensible from merged PR count alone.
