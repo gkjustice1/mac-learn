@@ -141,7 +141,7 @@ reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
-select is((select count(*) from public.student_enrollment_events),3::bigint,'own organization admin can view enrollment audit');
+select is((select count(*) from public.student_enrollment_events),2::bigint,'own organization admin can view successful enrollment and withdrawal audit events');
 reset role;
 
 set local role authenticated;
