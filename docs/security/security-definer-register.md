@@ -4,7 +4,7 @@ Audit date: 2026-09-14. Production project: `mcueezodawllcgtloghc`. Source basel
 
 ## Decision and limits
 
-All 38 signed-in-executable warnings have an individual rationale below. Recommendation: retain these entry points with their current authorization boundaries, subject to the explicit exceptions and evidence gaps below. This register is an engineering justification, not a signed risk acceptance or a penetration-test certificate. The broader security gate remains OPEN.
+All 38 signed-in-executable warnings have an individual rationale below. The accepted directions require legacy retirement and narrower current-student tutor access; organization-authorized date-only metadata is accepted. Current production behavior remains documented until reviewed changes are deployed. This register is an engineering justification, not a signed risk acceptance or a penetration-test certificate. The broader security gate remains OPEN.
 
 Production catalog confirms 47 public SECURITY DEFINER functions in total, 38 executable by authenticated and zero executable by anon. Each of the 38 restricts execution to the owner and authenticated role and has a fixed search path. Neither anon nor authenticated can CREATE in public. The nine remaining definer functions are outside this advisor category. These ACL facts do not alone prove body authorization.
 
@@ -14,7 +14,7 @@ Exact production definitions were inspected read-only and are not included in th
 
 ## Individual dispositions
 
-All rows: proposed RETAIN, pending review of this register. Rows with legacy compatibility and calendar metadata semantics additionally require the decisions below.
+Rows describe the audited production behavior. Accepted dispositions: retire the two legacy eligibility helpers and dependent legacy alternatives after checks; retain date-only calendar lookup within an authorized organization; replace historical-session-only student access with an active assignment requirement. Other justifications are not blanket risk acceptance.
 
 | Function | Security justification and boundary | Existing direct test references |
 |---|---|---|
@@ -57,12 +57,14 @@ All rows: proposed RETAIN, pending review of this register. Rows with legacy com
 | `mac_tutor_is_assigned_to_student` | Caller tutor ID must own a session for student; active tutor role matches student's organization/site. Historical session relationship is intentionally sufficient (no session-status cutoff). | [tutor_data_access.test.sql](../../supabase/tests/tutor_data_access.test.sql) |
 | `mac_tutor_owns_session` | Session tutor matches self tutor ID and scoped assigned-student predicate; dependency for Tutor write/read RLS. | [tutor_data_access.test.sql](../../supabase/tests/tutor_data_access.test.sql); [boundary map and limits](helper-coverage-and-decisions.md). |
 
-## Explicit decisions required before broader closure
+## Policy directions and remaining implementation gates
 
-1. **Legacy administration and family links:** retain only as a documented transition policy, or retire after migration inventory and regression checks. `mac_can_use_legacy_admin_access()` and `mac_can_use_legacy_family_link()` can return true without an identity; they are eligibility helpers, not permission checks. The authorized summary records current direct catalog callers combining eligibility with caller role or ownership. Zero legacy inventory supports proposed retirement, subject to provisioning-path analysis and a separate tested migration. Owner: platform security engineering; acceptance: George.
-2. **Calendar metadata boundary:** PR #53 intentionally permits calendar-date lookup for any existing target in an authorized organization, including another site in that organization. It does not grant underlying student/classroom access. Approve that metadata boundary explicitly or implement narrower acyclic access. Owner: platform security engineering/product owner.
-3. **Tutor historical relationship:** `mac_tutor_is_assigned_to_student` accepts any matching session, not just an upcoming/active session. Confirm continued historical access is the intended retention policy. Owner: product/privacy owner.
-4. **Coverage traceability:** Direct negative/positive coverage for `mac_admin_validate_student_login_invitation` and `mac_admin_link_invited_student_login` is completed in PR #55 (34 assertions; full clean replay: 490 assertions across 23 files passed). Ten remaining helper references are mapped with 35 additional direct assertions in [helper coverage and decisions](helper-coverage-and-decisions.md). PR #56 passed 525 assertions/23 files, Quality, Vercel and fresh Codex review. Current aggregate legacy inventory is zero and direct catalog callers were reviewed; provisioning-path retirement analysis and policy acceptance remain open. Passing the suite is not proof of every security branch. Owner: engineering.
+George confirmed the directions on 2026-09-14: retire legacy paths after checks; accept organization-authorized date-only metadata; require an active tutor assignment for current student access. See [accepted record](accepted-policy-directions.md). Implementation and historical-note retention details remain open.
+
+1. **Legacy administration and family links:** retirement direction accepted by George. Current direct callers combine eligibility with role/ownership; zero observed legacy inventory supports removal after provisioning checks and migration tests. Implementation and production application remain open. Owner: platform security engineering.
+2. **Calendar metadata boundary:** George accepted organization-authorized date-only lookup, including another site within the organization. No underlying student/classroom access is granted. Re-review if payload or tenant authorization changes. Owner: platform security engineering/product owner.
+3. **Tutor historical relationship:** active assignment is required by the accepted direction for current student access. Existing historical-session behavior must be replaced; historical-note permissions/retention must be defined separately before finalizing that change. Owner: engineering with product/privacy owner for retention.
+4. **Coverage traceability:** Direct negative/positive coverage for `mac_admin_validate_student_login_invitation` and `mac_admin_link_invited_student_login` is completed in PR #55 (34 assertions; full clean replay: 490 assertions across 23 files passed). Ten remaining helper references are mapped with 35 additional direct assertions in [helper coverage and decisions](helper-coverage-and-decisions.md). PR #56 passed 525 assertions/23 files, Quality, Vercel and fresh Codex review. Current aggregate legacy inventory is zero and direct catalog callers were reviewed; provisioning-path retirement work, active assignment implementation and historical-note retention details remain open. Passing the suite is not proof of every security branch. Owner: engineering.
 5. **Deployment/browser evidence:** confirm latest Production/Current alias and repeat critical role paths after hardening. The Vercel API connection could not read deployment details; GitHub reported success. Existing Academic Lead browser evidence predates PR #53's database application.
 
 ## Verification evidence
