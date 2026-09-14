@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(39);
+select plan(40);
 
 -- Test-only transactional grants: production intentionally does not grant
 -- authenticated UPDATE on students. This suite exercises the RLS policy path,
@@ -131,6 +131,7 @@ delete from public.guardians where id='44000000-0000-4000-8000-000000000001';
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"14000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 select is((select count(*) from public.students),0::bigint,'a disabled enterprise identity without a guardian record cannot use legacy access');
+select ok(not public.mac_can_use_legacy_family_link('24000000-0000-4000-8000-000000000001'), 'disabled identity without guardian is denied by family eligibility itself');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims','{}',true);
