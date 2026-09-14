@@ -1,6 +1,6 @@
 # M1 / Vocabulary release gate reconciliation
 
-As of 2026-09-14, evidence baseline main `77fe9bf` (PR #55).
+As of 2026-09-14, evidence baseline main `a2f2641` (PR #56).
 Decision: **BROADER CERTIFICATION OPEN**. This is a reconciliation of available GitHub, production catalog, tests and user-reported browser evidence. It is not a replacement for the complete master PRD/Definition of Done, which was not present in the inspected repository.
 
 ## Evidence-backed status
@@ -20,7 +20,7 @@ Decision: **BROADER CERTIFICATION OPEN**. This is a reconciliation of available 
 | Four-function security correction | Applied and verified | PR #53; production `20260914152633`; exact four bodies/ACLs verified; negative-access smoke checks passed; 456 assertions/22 files passed on clean replay. |
 | Leaked-password protection | Resolved | Supabase Pro confirmed; live advisor no longer reports disabled protection after dashboard save. |
 | Remaining 38 function warnings | Justifications documented; acceptance/evidence pending | [Individual register](../security/security-definer-register.md); no blanket dismissal and no new production privilege changes. |
-| Latest deployment alias | Verification incomplete | GitHub Vercel status successful for #55 merge `77fe9bf`; Vercel connection returned access/not-found errors for details. Obtain Production/Current and mac-learn.vercel.app evidence for the current deployment. |
+| Latest deployment alias | Verification incomplete | GitHub Vercel status successful for #56 merge `a2f2641`; Vercel connection returned access/not-found errors for details. Obtain Production/Current and mac-learn.vercel.app evidence for the current deployment. |
 | MAC READS audio | Separate held lane | [Issue #47](https://github.com/gkjustice1/mac-learn/issues/47), draft [PR #31](https://github.com/gkjustice1/mac-learn/pull/31). Server privilege/publishing and real media validation remain required before activation. Does not prevent claiming database-only Vocabulary foundation complete; prevents claiming audio delivery ready. |
 | Full M1 / full Vocabulary Studio / full platform | NOT CERTIFIED | Scope reconciliation, remaining security decisions and acceptance evidence still required. |
 
@@ -45,4 +45,4 @@ Owner for engineering evidence and tests: engineering. Acceptance/retention deci
 
 ## Helper evidence follow-up
 
-[Boundary map and proposed decisions](../security/helper-coverage-and-decisions.md) maps ten helpers to direct assertions and dependent policy tests. The added 34 assertions require CI validation; legacy caller inventory and the three product/security decisions remain open. Post-merge #55 Application and Database Quality and GitHub Vercel status passed. No blanket security acceptance or broader certification is recorded.
+[Boundary map and proposed decisions](../security/helper-coverage-and-decisions.md) maps ten helpers to direct assertions and dependent policy tests. The added 35 assertions passed (525 total across 23 files), followed by clean Quality, Vercel and Codex review. Current aggregate legacy inventory and direct catalog caller review are published with George’s explicit disclosure authorization; provisioning-path retirement analysis and the three product/security decisions remain open. Post-merge #56 Application and Database Quality and GitHub Vercel status passed. No blanket security acceptance or broader certification is recorded.
