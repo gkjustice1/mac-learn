@@ -1,6 +1,6 @@
 # M1 / Vocabulary release gate reconciliation
 
-As of 2026-09-14, evidence baseline main `77fe9bf` (PR #55).
+As of 2026-09-14, evidence baseline main `a2f2641` (PR #56).
 Decision: **BROADER CERTIFICATION OPEN**. This is a reconciliation of available GitHub, production catalog, tests and user-reported browser evidence. It is not a replacement for the complete master PRD/Definition of Done, which was not present in the inspected repository.
 
 ## Evidence-backed status
@@ -45,4 +45,4 @@ Owner for engineering evidence and tests: engineering. Acceptance/retention deci
 
 ## Helper evidence follow-up
 
-[Boundary map and proposed decisions](../security/helper-coverage-and-decisions.md) maps ten helpers to direct assertions and dependent policy tests. The added 34 assertions require CI validation; legacy caller inventory and the three product/security decisions remain open. Post-merge #55 Application and Database Quality and GitHub Vercel status passed. No blanket security acceptance or broader certification is recorded.
+[Boundary map and proposed decisions](../security/helper-coverage-and-decisions.md) maps ten helpers to direct assertions and dependent policy tests. The added 35 assertions passed (525 total across 23 files), followed by clean Quality, Vercel and Codex review. Current aggregate legacy inventory and direct catalog caller review are published with George’s explicit disclosure authorization; provisioning-path retirement analysis and the three product/security decisions remain open. Post-merge #56 Application and Database Quality and GitHub Vercel status passed. No blanket security acceptance or broader certification is recorded.
