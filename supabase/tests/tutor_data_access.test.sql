@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(22);
+select plan(26);
 
 -- Test-only transactional grants: production intentionally does not grant
 -- authenticated table SELECT on tutor_profiles or UPDATE on students. This
@@ -46,6 +46,10 @@ insert into public.sessions (id,student_id,parent_id,tutor_id,start_time,end_tim
 
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select throws_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000002','approved')$$,'42501','not authorized to manage tutor profile','a tutor cannot invoke mac_admin_update_tutor_profile for another tutor');
+select throws_ok($$select public.mac_admin_clear_tutor_profile_fields('55000000-0000-4000-8000-000000000002',true)$$,'42501','not authorized to manage tutor profile','a tutor cannot invoke mac_admin_clear_tutor_profile_fields for another tutor');
+select throws_ok($$select public.mac_admin_update_tutor_profile('00000000-0000-0000-0000-000000000000')$$,'42501','not authorized to manage tutor profile','missing target has the same denial for mac_admin_update_tutor_profile');
+select throws_ok($$select public.mac_admin_clear_tutor_profile_fields('00000000-0000-0000-0000-000000000000')$$,'42501','not authorized to manage tutor profile','missing target has the same denial for mac_admin_clear_tutor_profile_fields');
 select is((select count(*) from public.tutor_profiles),1::bigint,'a tutor can view only their own tutor profile');
 select is(public.mac_current_tutor_id(),'55000000-0000-4000-8000-000000000001','an organization-scoped tutor role works for a site-linked tutor profile');
 select lives_ok($$update public.tutor_profiles set bio='Updated biography' where id='55000000-0000-4000-8000-000000000001'$$,'a tutor can update their own public profile fields');
