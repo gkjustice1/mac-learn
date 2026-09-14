@@ -57,7 +57,9 @@ All rows: proposed RETAIN, pending review of this register. Rows with legacy com
 | `mac_tutor_is_assigned_to_student` | Caller tutor ID must own a session for student; active tutor role matches student's organization/site. Historical session relationship is intentionally sufficient (no session-status cutoff). | [tutor_data_access.test.sql](../../supabase/tests/tutor_data_access.test.sql) |
 | `mac_tutor_owns_session` | Session tutor matches self tutor ID and scoped assigned-student predicate; dependency for Tutor write/read RLS. | [tutor_data_access.test.sql](../../supabase/tests/tutor_data_access.test.sql); [boundary map and limits](helper-coverage-and-decisions.md). |
 
-## Explicit decisions required before broader closure
+## Policy directions and remaining implementation gates
+
+George confirmed the directions on 2026-09-14: retire legacy paths after checks; accept organization-authorized date-only metadata; require an active tutor assignment for current student access. See [accepted record](accepted-policy-directions.md). The earlier decision questions below are superseded by that record; implementation and historical-note retention details remain open.
 
 1. **Legacy administration and family links:** retain only as a documented transition policy, or retire after migration inventory and regression checks. `mac_can_use_legacy_admin_access()` and `mac_can_use_legacy_family_link()` can return true without an identity; they are eligibility helpers, not permission checks. The authorized summary records current direct catalog callers combining eligibility with caller role or ownership. Zero legacy inventory supports proposed retirement, subject to provisioning-path analysis and a separate tested migration. Owner: platform security engineering; acceptance: George.
 2. **Calendar metadata boundary:** PR #53 intentionally permits calendar-date lookup for any existing target in an authorized organization, including another site in that organization. It does not grant underlying student/classroom access. Approve that metadata boundary explicitly or implement narrower acyclic access. Owner: platform security engineering/product owner.

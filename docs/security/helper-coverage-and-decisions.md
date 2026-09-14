@@ -23,9 +23,9 @@ Direct tests: [Family](../../supabase/tests/family_student_access.test.sql), [Tu
 
 Source paths: legacy helpers in `20260827011521_enforce_family_student_access.sql`; family labels in `20260830235418_add_family_workspace_access.sql`; tutor scope/session helpers in `20260829221604_link_tutor_profiles_to_assignments.sql`; educator labels in `20260901104500_add_educator_scope_name_access.sql`; educator student helper in `20260903125500_align_educator_rls_tenant_calendar.sql`; site classroom helper in `20260828123000_enforce_site_scoped_operations.sql`; enterprise identity in `20260808194906_enterprise_authorization_rls.sql`; organization admin in `20260825203000_enforce_tenant_context.sql`.
 
-## Proposed decisions — not accepted
+## Original proposals — superseded by accepted directions
 
-Standing engineering/merge approval is not interpreted as acceptance of these product/privacy policies. No security warning is globally dismissed.
+George confirmed the policy directions on 2026-09-14. See [accepted directions and implementation sequence](accepted-policy-directions.md). The table below preserves the earlier proposals; the accepted record controls. Historical-note retention details and implementation remain open. No security warning is globally dismissed.
 
 | Decision | Recommendation | Acceptance condition / review trigger |
 |---|---|---|

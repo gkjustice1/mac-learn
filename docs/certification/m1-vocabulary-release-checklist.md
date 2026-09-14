@@ -46,3 +46,7 @@ Owner for engineering evidence and tests: engineering. Acceptance/retention deci
 ## Helper evidence follow-up
 
 [Boundary map and proposed decisions](../security/helper-coverage-and-decisions.md) maps ten helpers to direct assertions and dependent policy tests. The added 35 assertions passed (525 total across 23 files), followed by clean Quality, Vercel and Codex review. Current aggregate legacy inventory and direct catalog caller review are published with George’s explicit disclosure authorization; provisioning-path retirement analysis and the three product/security decisions remain open. Post-merge #56 Application and Database Quality and GitHub Vercel status passed. No blanket security acceptance or broader certification is recorded.
+
+## Accepted policy directions — 2026-09-14
+
+George confirmed legacy retirement after provisioning/regression checks, organization-authorized date-only calendar visibility, and active tutor assignment for current student access. [Decision record and prepared implementation sequence](../security/accepted-policy-directions.md) supersedes earlier pending-direction wording in this checklist and linked proposals. Historical-note retention details remain undecided. Policy confirmation closes the direction decision, not the implementation, deployment or broader certification gates. PR #57 post-merge Quality and GitHub Vercel status passed.
