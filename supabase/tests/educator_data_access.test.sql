@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(17);
+select plan(27);
 
 insert into auth.users (id, email) values
   ('16000000-0000-4000-8000-000000000001', 'assigned-educator@example.test'),
@@ -46,6 +46,11 @@ select throws_ok($$insert into public.classrooms (organization_id, site_id, name
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"16000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+select ok(public.mac_is_active_educator_scope('26000000-0000-4000-8000-000000000001',null), 'educator scope admits assigned organization');
+select ok(not public.mac_is_active_educator_scope('26000000-0000-4000-8000-000000000002',null), 'educator scope denies foreign organization');
+select ok(public.mac_educator_can_access_student('86000000-0000-4000-8000-000000000001','76000000-0000-4000-8000-000000000001'), 'educator helper admits enrolled student');
+select ok(not public.mac_educator_can_access_student('86000000-0000-4000-8000-000000000001','76000000-0000-4000-8000-000000000002'), 'educator helper denies student outside classroom');
+select ok(not public.mac_is_organization_admin('26000000-0000-4000-8000-000000000001'), 'teacher does not acquire organization administration');
 select ok(public.mac_is_active_classroom_educator('86000000-0000-4000-8000-000000000001'), 'an assigned educator resolves their classroom');
 select ok(not public.mac_is_active_classroom_educator('86000000-0000-4000-8000-000000000002'), 'an educator cannot resolve another educator classroom');
 select is((select count(*) from public.classrooms), 1::bigint, 'an educator sees only assigned classrooms');
@@ -70,6 +75,8 @@ select throws_ok($$insert into public.educator_instructional_records (organizati
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"16000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
+select ok(public.mac_is_organization_admin('26000000-0000-4000-8000-000000000001'), 'organization administrator resolves own tenant');
+select ok(not public.mac_is_organization_admin('26000000-0000-4000-8000-000000000002'), 'organization administrator cannot resolve foreign tenant');
 select is((select count(*) from public.classrooms), 2::bigint, 'an organization administrator sees classrooms in their organization');
 select is((select count(*) from public.classroom_educators), 2::bigint, 'an organization administrator sees educator assignments in their organization');
 select is((select count(*) from public.classroom_student_enrollments), 2::bigint, 'an organization administrator sees enrollments in their organization');
@@ -77,6 +84,9 @@ select is((select count(*) from public.educator_instructional_records), 3::bigin
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims', '{}', true);
+select ok(not public.mac_is_active_educator_scope('26000000-0000-4000-8000-000000000001',null), 'missing identity has no educator scope');
+select ok(not public.mac_educator_can_access_student('86000000-0000-4000-8000-000000000001','76000000-0000-4000-8000-000000000001'), 'missing identity cannot resolve educator student');
+select ok(not public.mac_is_organization_admin('26000000-0000-4000-8000-000000000001'), 'missing identity has no organization administration');
 select ok(not public.mac_is_active_classroom_educator('86000000-0000-4000-8000-000000000001'), 'unauthenticated callers cannot resolve educator assignments');
 reset role;
 select * from finish();

@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(26);
+select plan(32);
 
 -- Test-only transactional grants: production intentionally does not grant
 -- authenticated table SELECT on tutor_profiles or UPDATE on students. This
@@ -46,6 +46,10 @@ insert into public.sessions (id,student_id,parent_id,tutor_id,start_time,end_tim
 
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select ok(public.mac_tutor_can_view_organization('25000000-0000-4000-8000-000000000001'), 'tutor scope helper admits assigned organization');
+select ok(not public.mac_tutor_can_view_organization('25000000-0000-4000-8000-000000000002'), 'tutor scope helper denies foreign organization');
+select ok(public.mac_tutor_owns_session('85000000-0000-4000-8000-000000000001'), 'session helper admits own historical session');
+select ok(not public.mac_tutor_owns_session('85000000-0000-4000-8000-000000000002'), 'session helper denies another tutor session');
 select throws_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000002','approved')$$,'42501','not authorized to manage tutor profile','a tutor cannot invoke mac_admin_update_tutor_profile for another tutor');
 select throws_ok($$select public.mac_admin_clear_tutor_profile_fields('55000000-0000-4000-8000-000000000002',true)$$,'42501','not authorized to manage tutor profile','a tutor cannot invoke mac_admin_clear_tutor_profile_fields for another tutor');
 select throws_ok($$select public.mac_admin_update_tutor_profile('00000000-0000-0000-0000-000000000000')$$,'42501','not authorized to manage tutor profile','missing target has the same denial for mac_admin_update_tutor_profile');
@@ -88,6 +92,8 @@ select is((select count(*) from public.tutor_profiles),2::bigint,'an organizatio
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claims','{}',true);
+select ok(not public.mac_tutor_can_view_organization('25000000-0000-4000-8000-000000000001'), 'missing identity cannot resolve tutor organization');
+select ok(not public.mac_tutor_owns_session('85000000-0000-4000-8000-000000000001'), 'missing identity cannot own a tutor session');
 select ok(not public.mac_tutor_is_assigned_to_student('75000000-0000-4000-8000-000000000001'),'unauthenticated callers cannot resolve tutor assignments');
 reset role;
 select * from finish();
