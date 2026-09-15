@@ -97,10 +97,10 @@ select is((select actor_user_id from public.student_enrollment_events where even
 insert into public.students (first_name,last_name,grade_level,enterprise_status) values ('Legacy','Unscoped','Grade 4','active');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"a1000000-0000-4000-8000-000000000007","role":"authenticated"}',true);
-select lives_ok($$update public.students set enterprise_status='inactive' where first_name='Legacy' and last_name='Unscoped'$$,'legacy administrator can update an unscoped student during transition');
-select lives_ok($$update public.students set enterprise_status='inactive' where first_name='Real' and last_name='Learner'$$,'legacy administrator can update a scoped student without an enterprise users row');
+with changed as (update public.students set enterprise_status='inactive' where first_name='Legacy' and last_name='Unscoped' returning id) select is(count(*),0::bigint,'legacy administrator cannot update an unscoped student') from changed;
+with changed as (update public.students set enterprise_status='inactive' where first_name='Real' and last_name='Learner' returning id) select is(count(*),0::bigint,'legacy administrator cannot update a scoped student') from changed;
 reset role;
-select ok((select actor_user_id is null from public.student_enrollment_events where event_type='updated'),'legacy status-change audit stores a null enterprise actor');
+select is((select count(*) from public.student_enrollment_events where event_type='updated'),0::bigint,'denied legacy updates create no audit event');
 
 update public.guardians set status='restricted' where person_id='d1000000-0000-4000-8000-000000000004';
 set local role authenticated;
@@ -141,7 +141,7 @@ reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"a1000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
-select is((select count(*) from public.student_enrollment_events),3::bigint,'own organization admin can view enrollment audit');
+select is((select count(*) from public.student_enrollment_events),2::bigint,'own organization admin can view successful enrollment and withdrawal audit events');
 reset role;
 
 set local role authenticated;

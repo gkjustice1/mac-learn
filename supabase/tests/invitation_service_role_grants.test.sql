@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(25);
+select plan(36);
 
 select ok(not has_table_privilege('service_role', 'public.people', 'select'), 'service_role cannot select people');
 select ok(not has_table_privilege('service_role', 'public.people', 'insert'), 'service_role cannot insert people directly');
@@ -36,6 +36,15 @@ insert into auth.users (
   'authenticated', 'authenticated', 'service-role-invite@example.test', '',
   now(), '{}', '{}', now(), now()
 );
+
+set local role service_role;
+select throws_ok($$select public.mac_create_invited_enterprise_identity('4a000000-0000-4000-8000-000000000001','Invite','Test','mismatch@example.test','5a000000-0000-4000-8000-000000000001','6a000000-0000-4000-8000-000000000001')$$,'P0001','Invitation auth user does not match the requested identity','mismatched Auth email cannot provision an identity');
+select throws_ok($$select public.mac_create_invited_enterprise_identity('4a000000-0000-4000-8000-000000000099','Invite','Test','service-role-invite@example.test','5a000000-0000-4000-8000-000000000001','6a000000-0000-4000-8000-000000000001')$$,'P0001','Invitation auth user does not match the requested identity','missing Auth identity cannot provision an identity');
+select throws_ok($$select public.mac_create_invited_enterprise_identity('4a000000-0000-4000-8000-000000000001','Invite','Test','service-role-invite@example.test','5a000000-0000-4000-8000-000000000001','6a000000-0000-4000-8000-000000000099')$$,'23503',null,'failure at profile site validation rolls back identity creation');
+reset role;
+select is((select count(*) from public.people where primary_email='service-role-invite@example.test'),0::bigint,'failed provisioning leaves no person');
+select is((select count(*) from public.users where id='4a000000-0000-4000-8000-000000000001'),0::bigint,'failed provisioning leaves no enterprise user');
+select is((select count(*) from public.profiles where user_id='4a000000-0000-4000-8000-000000000001'),0::bigint,'failed provisioning leaves no legacy profile');
 
 set local role service_role;
 select lives_ok(
@@ -101,6 +110,15 @@ select ok(
   and exists (select 1 from public.role_assignment_events where assignment_id = '8a000000-0000-4000-8000-000000000001'),
   'refused cleanup preserves the active linked identity'
 );
+
+update public.users set account_status='disabled' where id='4a000000-0000-4000-8000-000000000001';
+set local role service_role;
+select throws_ok($$select public.mac_create_invited_enterprise_identity('4a000000-0000-4000-8000-000000000001','Invite','Test','service-role-invite@example.test','5a000000-0000-4000-8000-000000000001','6a000000-0000-4000-8000-000000000001')$$,'23505',null,'existing disabled enterprise identity cannot be reprovisioned');
+select is(public.mac_cleanup_invited_enterprise_identity('4a000000-0000-4000-8000-000000000001'),'not_invited','cleanup preserves disabled enterprise identity');
+reset role;
+select is((select account_status from public.users where id='4a000000-0000-4000-8000-000000000001'),'disabled','failed duplicate provisioning cannot reactivate account');
+select is((select count(*) from public.people where primary_email='service-role-invite@example.test'),1::bigint,'duplicate failure rolls back the extra person');
+select is((select count(*) from public.profiles where user_id='4a000000-0000-4000-8000-000000000001'),1::bigint,'duplicate failure preserves exactly one linked profile');
 
 update public.users
 set account_status = 'invited'

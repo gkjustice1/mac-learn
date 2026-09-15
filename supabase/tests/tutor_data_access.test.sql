@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
-select plan(32);
+select plan(35);
 
 -- Test-only transactional grants: production intentionally does not grant
 -- authenticated table SELECT on tutor_profiles or UPDATE on students. This
@@ -73,6 +73,10 @@ insert into public.profiles (id,user_id,full_name,email,organization_id,role) va
 insert into public.profiles (id,user_id,full_name,email,organization_id) values ('65000000-0000-4000-8000-000000000005','15000000-0000-4000-8000-000000000005','Foreign Replacement','foreign-replacement@example.test','25000000-0000-4000-8000-000000000002');
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+select is((select count(*) from public.tutor_profiles),0::bigint,'unmigrated legacy admin cannot read tutor profiles');
+select throws_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001','approved')$$,'42501','not authorized to manage tutor profile','unmigrated legacy admin cannot update tutor fields');
+select throws_ok($$select public.mac_admin_clear_tutor_profile_fields('55000000-0000-4000-8000-000000000001',true)$$,'42501','not authorized to manage tutor profile','unmigrated legacy admin cannot clear tutor fields');
+select set_config('request.jwt.claims','{"sub":"15000000-0000-4000-8000-000000000004","role":"authenticated"}',true);
 select lives_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001','approved')$$,'an authorized administrator can approve a tutor through the protected-field RPC');
 select is((select approval_status from public.tutor_profiles where id='55000000-0000-4000-8000-000000000001'),'approved'::approval_status,'the administrative RPC updates protected tutor fields');
 select throws_ok($$select public.mac_admin_update_tutor_profile('55000000-0000-4000-8000-000000000001',null,null,null,null,null,null,'65000000-0000-4000-8000-000000000005')$$,'42501','replacement profile is outside the authorized organization','an administrator cannot replace a tutor profile with a foreign-tenant profile');
